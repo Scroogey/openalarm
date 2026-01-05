@@ -20,6 +20,8 @@ import java.util.Locale
 import androidx.core.net.toUri
 import de.laurik.openalarm.utils.AppLogger
 
+// TODO: fix two alarms ringing at the same time not being correctly stopped
+
 /**
  * Service that handles playing alarm tones, managing audio focus, and handling actions like snooze and stop.
  *
@@ -36,10 +38,10 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         try {
             (applicationContext as BaseApplication).getLogger()
         } catch (e: Exception) {
-            // Fallback if casting fails (e.g. during heavy refactors/instant run)
             AppLogger(applicationContext)
         }
     }
+
     companion object {
         private const val TAG = "RingtoneService"
         private const val LOADING_NOTIF_ID = 69999
@@ -81,7 +83,6 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     override fun onCreate() {
         super.onCreate()
         logger.d(TAG, "Service created")
-
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         tts = TextToSpeech(this, this)
     }
@@ -93,7 +94,6 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         if (status == TextToSpeech.SUCCESS) {
             val result = tts?.setLanguage(Locale.getDefault())
             isTtsReady = result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED
-
             val attrs = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
@@ -158,8 +158,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     private fun createPlaceholderNotification(): Notification {
         val channelId = "ALARM_CHANNEL_ID"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val chan =
-                NotificationChannel(channelId, "Alarm Ringing", NotificationManager.IMPORTANCE_HIGH)
+            val chan = NotificationChannel(channelId, "Alarm Ringing", NotificationManager.IMPORTANCE_HIGH)
             chan.setSound(null, null)
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.createNotificationChannel(chan)
@@ -184,25 +183,18 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         val action = intent?.action
         logger.d(TAG, "Handling action: $action")
 
-        // --- STOP ---
         if (action == "STOP_RINGING" || action == "STOP") {
             handleStopAction(intent)
             return
         }
-
-        // --- SNOOZE ---
         if (action == "SNOOZE_1" || action == "SNOOZE_CUSTOM") {
             handleSnoozeAction(intent)
             return
         }
-
-        // --- ADD TIME (Timer) ---
         if (action == "ADD_TIME") {
             handleAddTimeAction(intent)
             return
         }
-
-        // --- START NEW ---
         handleStartNewAction(intent)
     }
 
@@ -227,6 +219,13 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
      * Handles stopping the current alarm.
      */
     private fun handleStopCurrentAlarm() {
+        // 1. CLEANUP STACK: Remove the alarm we are stopping from the interrupted stack.
+        // This prevents the "Ring Again" bug where a stale duplicate resumes immediately.
+        if (currentRingingId != -1) {
+            // Remove from memory
+            InternalDataStore.interruptedItems.removeAll { it.id == currentRingingId }
+        }
+
         val alarm = AlarmRepository.getAlarm(currentRingingId)
         if (alarm != null) {
             val now = System.currentTimeMillis()
@@ -321,16 +320,11 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 val currentRemaining = (timer.endTime - now).coerceAtLeast(0L)
                 val newEndTime = now + currentRemaining + (seconds * 1000L)
 
-                val newTimer = timer.copy(
-                    endTime = newEndTime,
-                    totalDuration = timer.totalDuration + (seconds * 1000L)
-                )
-
+                val newTimer = timer.copy(endTime = newEndTime, totalDuration = timer.totalDuration + (seconds * 1000L))
                 AlarmRepository.updateTimer(this@RingtoneService, newTimer)
                 val scheduler = AlarmScheduler(this@RingtoneService)
                 scheduler.scheduleExact(newEndTime, targetId, "TIMER")
 
-                // Ensure the Running service is aware of the change
                 val tSvc = Intent(this@RingtoneService, TimerRunningService::class.java)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     startForegroundService(tSvc)
@@ -346,7 +340,6 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                     AlarmRepository.setCurrentRingingId(-1)
                     checkStackAndResume()
                 }
-
                 NotificationRenderer.refreshAll(this@RingtoneService)
             }
         } catch (e: Exception) {
@@ -363,6 +356,10 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             val newId = intent?.getIntExtra("ALARM_ID", 0) ?: 0
             val newType = intent?.getStringExtra("ALARM_TYPE") ?: "ALARM"
 
+            if (newId <= 0) {
+                logger.w(TAG, "Ignored start request with Invalid ID: $newId")
+                return
+            }
             logger.d(TAG, "Starting new ringing for ID: $newId, Type: $newType")
 
             if (currentRingingId == -1) {
@@ -537,14 +534,11 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             }
 
             if (alarm.isSingleUse || (alarm.daysOfWeek.isEmpty() && alarm.temporaryOverrideTime == null)) {
-                val updated = alarm.copy(isEnabled = false)
-                logger.d(TAG, "Disabling single-use alarm: ID=$alarmId")
-                AlarmRepository.updateAlarm(this, updated)
+                AlarmRepository.updateAlarm(this, alarm.copy(isEnabled = false))
             } else {
                 val scheduler = AlarmScheduler(this)
-                val group = AlarmRepository.groups.find { it.alarms.any { a -> a.id == alarm.id } }
+                val group = AlarmRepository.groups.find { it.alarms.any { a -> a.id == alarmId } }
                 val offset = group?.offsetMinutes ?: 0
-                logger.d(TAG, "Scheduling next occurrence with offset: $offset")
                 scheduler.schedule(alarm, offset)
             }
         } catch (e: Exception) {
@@ -703,12 +697,10 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
      */
     private fun startAudioWithFeatures() {
         try {
-            logger.d(TAG, "Starting audio with features")
-            stopAll() // clean existing stuff
-
+            logger.d(TAG, "Starting audio...")
+            stopAll()
             val settingsRepo = SettingsRepository.getInstance(applicationContext)
             val defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-
             var uriToPlay = defaultUri
             var fadeSeconds = 0
             var useVibration = true
@@ -952,6 +944,13 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         try {
             val nextItem = AlarmRepository.popInterruptedItem(this)
             if (nextItem != null) {
+                // Double check we aren't resuming the same ID we just stopped (safety check)
+                if (nextItem.id == currentRingingId) {
+                    logger.w(TAG, "Aborting resume of same ID that was just stopped: ${nextItem.id}")
+                    checkStackAndResume() // skip this one, try next
+                    return
+                }
+
                 if (nextItem.type == "TIMER" && AlarmRepository.getTimer(nextItem.id) == null) {
                     checkStackAndResume()
                     return
