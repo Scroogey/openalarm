@@ -1,0 +1,32 @@
+# Gradle
+.gradle/
+build/
+
+# Local configuration
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# APK / AAB outputs
+*.apk
+*.aab
+
+# Keystore files (NEVER commit)
+*.jks
+*.keystore
+
+# NDK
+.externalNativeBuild/
+.cxx/
+
+# Kotlin
+kotlin/

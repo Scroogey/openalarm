@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="64dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:background="@android:color/transparent">
+
+    <!-- Icon: Now uses textColorPrimary to match the Title (High Contrast) -->
+    <ImageView
+        android:id="@+id/notif_icon"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:contentDescription="Alarm clock"
+        android:padding="10dp"
+        android:src="@drawable/ic_alarm"
+        android:tint="#FFFFFF" />
+
+    <!-- Text Area -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <!-- Title -->
+        <TextView
+            android:id="@+id/notif_title_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/notif_wake_up"
+            style="@style/TextAppearance.Compat.Notification.Title" />
+
+        <!-- Timer -->
+        <Chronometer
+            android:id="@+id/notif_chronometer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            style="@style/TextAppearance.Compat.Notification.Info" />
+    </LinearLayout>
+
+    <!-- Snooze Button -->
+    <LinearLayout
+        android:id="@+id/btn_snooze"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:background="?android:attr/selectableItemBackground">
+
+        <!-- Tint matches the text (Primary) -->
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_reset_time"
+            android:tint="#FFFFFF" />
+        
+        <!-- Text matches the icon -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/text_snooze"
+            android:text="@string/snooze_10_min"
+            android:textSize="12sp"
+            style="@style/TextAppearance.Compat.Notification.Title" />
+    </LinearLayout>
+
+    <!-- Stop Button -->
+    <LinearLayout
+        android:id="@+id/btn_stop"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:background="?android:attr/selectableItemBackground">
+
+        <!-- Red Tint for Stop -->
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_outline_cancel"
+            android:tint="#F44336" />
+        
+        <!-- Red Text to match Icon -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/action_stop"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#F44336" />
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="64dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:background="@android:color/transparent">
+
+    <!-- Icon -->
+    <ImageView
+        android:id="@+id/notif_icon"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:padding="10dp"
+        android:src="@drawable/ic_alarm"
+        android:tint="#FFFFFF" />
+
+    <!-- Text Area -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/notif_title_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/notif_timer_done"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#FFCDD2" /> <!-- Light Red Text -->
+
+        <!-- BIG COUNT UP -->
+        <Chronometer
+            android:id="@+id/notif_chronometer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+
+    <!-- Extension Buttons -->
+    <LinearLayout
+        android:id="@+id/btn_add_1"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="8dp"
+        android:background="?android:attr/selectableItemBackground">
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@drawable/ic_alarm"
+            android:tint="#FFFFFF" />
+        <TextView
+            android:id="@+id/txt_add_1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="+1m"
+            android:textSize="10sp"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/btn_add_2"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="8dp"
+        android:background="?android:attr/selectableItemBackground">
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@drawable/ic_alarm"
+            android:tint="#FFFFFF" />
+        <TextView
+            android:id="@+id/txt_add_2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="+5m"
+            android:textSize="10sp"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+
+    <!-- Stop/Dismiss Button -->
+    <LinearLayout
+        android:id="@+id/btn_stop"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:background="?android:attr/selectableItemBackground">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_outline_cancel"
+            android:tint="#FFFFFF" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/action_stop"
+            android:textSize="12sp"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+
+</LinearLayout>

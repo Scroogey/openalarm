@@ -1,0 +1,218 @@
+<resources>
+    <string name="app_name">OpenAlarm</string>
+    <string name="snooze_10_min">+10 min</string>
+
+    <!-- Notification Channels -->
+    <string name="channel_alarm_ringing">Alarm Ringing</string>
+    <string name="channel_alarm_desc">Shows when alarm is ringing</string>
+    <string name="channel_status">Status</string>
+    <string name="channel_status_desc">Shows next alarm or active timer</string>
+    <string name="channel_active_timer">Active Timer</string>
+    <string name="channel_active_timer_desc">Shows running timers</string>
+
+    <!-- Dashboard -->
+    <string name="section_active_timers">Active Timers</string>
+    <string name="timer_ringing">Ringing…</string>
+    <string name="section_next_alarm">Next alarm at</string>
+    <string name="action_skip_today">Skip Today</string>
+    <string name="section_your_alarms">Your Alarms</string>
+    <string name="label_volume_percent">Volume: %1$d%%</string>
+
+    <!-- Actions -->
+    <string name="action_stop">Stop</string>
+    <string name="action_stop_caps">STOP</string>
+    <string name="action_new_timer">New Timer</string>
+    <string name="desc_delete_alarm">Delete</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+    <string name="action_reset">Reset</string>
+    <string name="action_start">Start</string>
+    <string name="action_snooze">Snooze</string>
+    <string name="action_dismiss">Dismiss</string>
+    <string name="desc_close">Close</string>
+
+    <!-- Edit Dialogs -->
+    <string name="title_new_alarm">New Alarm</string>
+    <string name="title_edit_alarm">Edit Alarm</string>
+    <string name="title_adjust_next">Adjust next alarm time</string>
+    <string name="group_default_name">Default</string>
+    <string name="label_vibration">Vibration</string>
+    <string name="title_select_tone">Select Alarm Tone</string>
+    <string name="label_sound">Sound</string>
+    <string name="label_fade_in">Fade In</string>
+    <string name="label_fade_duration">Duration: %1$s</string>
+    <string name="label_speak_time">Speak Time</string>
+    <string name="tts_none">None</string>
+    <string name="tts_start">Start</string>
+    <string name="tts_every_min">Every Min</string>
+    <string name="label_volume_override">Volume Override</string>
+    <string name="label_system">System</string>
+    <string name="title_new_timer">New Timer</string>
+    <string name="action_add_minutes">+ %1$d min</string>
+
+    <!-- Ring Screen -->
+    <string name="title_timer_done">Timer Done</string>
+    <string name="label_add_time">Add Time</string>
+    <string name="action_add_1m">+1m</string>
+    <string name="action_add_5m">+5m</string>
+    <string name="label_alarm">Alarm</string>
+    <string name="desc_snooze">Snooze</string>
+    <string name="desc_stop">Stop</string>
+
+    <!-- Notifications -->
+    <string name="notif_timer_done">Timer Done!</string>
+    <string name="notif_alarm_set_for">Wake Up! Alarm set for %1$s</string>
+    <string name="notif_alarm_set_for_with_label">Wake Up! Alarm "%1s" set for %2$s</string>
+    <string name="notif_alarm_ringing">Wake Up! Alarm is ringing</string>
+    <string name="notif_timer_running">Timer Running</string>
+    <string name="notif_wake_up">Wake Up!</string>
+    <string name="notif_alarm_missed">Alarm missed</string>
+    <string name="fmt_alarm_missed">Alarm %1$s for %2$s missed</string>
+    <string name="fmt_alarm_missed_no_label">Alarm for %1$s missed</string>
+    <string name="notif_next_alarm">Next Alarm: %1$s</string>
+    <string name="notif_snoozed_for">Snoozed for %1$d min</string>
+    <string name="notif_ringing_at">Ringing at %1$s</string>
+    <string name="notif_time_remaining">Time Remaining</string>
+    <string name="title_set_time">Set Time</string>
+    <string name="title_set_timer">Set Timer</string>
+    <string name="desc_delete">Delete</string>
+    <string name="desc_done">Done</string>
+    <string name="action_done_caps">DONE</string>
+    <string name="fmt_countdown_long">in %1$dh %2$dm %3$ds</string>
+    <string name="fmt_countdown_short">in %1$dh %2$dm</string>
+    <string name="fmt_duration_h">%1$d h</string>
+    <string name="fmt_duration_m">%1$d min</string>
+    <string name="fmt_duration_s">%1$d s</string>
+    <string name="fmt_duration_0s">0 s</string>
+    <string name="tts_time_announce">It is %1$s</string>
+
+    <!-- Day Selector (Single Letter for small circles) -->
+    <string name="day_mon_short">M</string>
+    <string name="day_tue_short">T</string>
+    <string name="day_wed_short">W</string>
+    <string name="day_thu_short">T</string>
+    <string name="day_fri_short">F</string>
+    <string name="day_sat_short">S</string>
+    <string name="day_sun_short">S</string>
+
+    <!-- Accessibility / Full names -->
+    <string name="day_monday">Monday</string>
+    <string name="day_tuesday">Tuesday</string>
+    <string name="day_wednesday">Wednesday</string>
+    <string name="day_thursday">Thursday</string>
+    <string name="day_friday">Friday</string>
+    <string name="day_saturday">Saturday</string>
+    <string name="day_sunday">Sunday</string>
+
+    <!-- Dashboard Sections -->
+    <string name="header_next_alarm">Next Alarm</string>
+    <string name="header_upcoming">Upcoming</string>
+    <string name="header_disabled">Disabled</string>
+
+    <!-- Recurrence Patterns -->
+    <string name="repeat_weekdays">Weekdays</string>
+    <string name="repeat_weekends">Weekends</string>
+    <string name="repeat_every_day">Every Day</string>
+    <string name="repeat_once">Once</string>
+
+    <!-- Status / Time info -->
+    <string name="status_disabled">Disabled</string>
+    <string name="status_skipped_tomorrow">Tomorrow skipped</string>
+    <string name="status_skipped_until">Skipped until %1$s</string>
+    <string name="status_ringing_in">in %1$s</string> <!-- e.g. "in 5h 30m" -->
+    <!-- Result: "in 5m 12s (Snoozed)" -->
+    <string name="status_snoozed_format">%1$s (Snoozed)</string>
+    <string name="status_ringing_soon">Less than 1s</string>
+
+
+    <string name="hint_label">Label (Optional)</string>
+    <string name="default_alarm_title">Alarm</string>
+
+    <!-- Dynamic Time Formats -->
+    <string name="fmt_d_h">%1$dd %2$dh</string>      <!-- 3d 5h -->
+    <string name="fmt_h_m">%1$dh %2$dm</string>      <!-- 1h 23m -->
+    <string name="fmt_m_s">%1$dm %2$ds</string>      <!-- 23m 12s -->
+    <string name="fmt_s">%1$ds</string>              <!-- 5s -->
+
+    <string name="menu_remove">Remove Alarm</string>
+    <string name="menu_skip_next">Skip Next Occurrence</string>
+    <string name="menu_skip_until">Skip Until Specific Date…</string>
+    <string name="menu_clear_skip">Resume Alarm (Clear Skip)</string>
+
+    <string name="fmt_skipped_tomorrow">Tomorrow %1$s</string>
+    <string name="fmt_skipped_short">%1$s %2$s</string> <!-- Mon 08:00 -->
+    <string name="fmt_skipped_long">%1$s %2$d.%3$d. %4$s</string> <!-- Mon 21.6. 08:00 -->
+    <string name="label_next">Next:</string>
+
+    <!-- Quick Adjust Additional -->
+    <string name="label_active_override">Override active</string>
+    <string name="label_delay">Delay</string>
+    <string name="label_earlier">Earlier</string>
+    <string name="action_custom_time">Custom Time</string>
+
+    <!-- Group Management in Edit Dialog -->
+    <string name="label_group">Group</string>
+    <string name="hint_group_name">Group Name</string>
+    <string name="label_no_group">No Group</string>
+    <string name="action_create_new_group">Create New Group…</string>
+    <string name="action_add_to_group">+ Add Alarm to Group</string>
+
+    <!-- Settings Screen -->
+    <string name="title_settings">Settings</string>
+    <string name="header_alarm_settings">Alarm Settings</string>
+    <string name="header_timer_settings">Timer Settings</string>
+    <string name="header_appearance">Appearance</string>
+    <string name="section_presets">Presets</string>
+    <string name="section_theme">Theme</string>
+    <string name="section_general">General</string>
+    <string name="label_quick_adjust_buttons">Quick Adjust Buttons</string>
+    <string name="label_timer_presets">Timer Presets</string>
+    <string name="label_follow_system">Follow System</string>
+    <string name="label_dark_mode">Dark Mode</string>
+    <string name="label_pure_black">Pure Black Mode</string>
+    <string name="desc_pure_black">Save battery on OLED screens</string>
+    <string name="title_edit_adjust_presets">Adjust Buttons (Minutes)</string>
+    <string name="title_edit_timer_presets">Timer Presets (Minutes)</string>
+    <string name="label_button_n">Button %1$d</string>
+    <string name="desc_back">Back</string>
+    <string name="title_default_alarm_settings">Default Alarm Settings</string>
+    <string name="desc_default_alarm_settings">Set values for newly created alarms</string>
+    <string name="title_ringing_screen_settings">Ringing Screen Settings</string>
+    <string name="label_ringing_mode">Ringing Mode</string>
+    <string name="mode_easy">Easy (Buttons)</string>
+    <string name="mode_clean">Clean (Joystick)</string>
+    <string name="mode_default">Default (Follow Global)</string>
+    <string name="label_background">Background</string>
+    <string name="bg_type_color">Solid Color</string>
+    <string name="bg_type_gradient">Gradient</string>
+    <string name="bg_type_image">Image</string>
+    <string name="action_select_image">Select Image…</string>
+    <string name="label_timer_adjust_presets">Timer Adjust Presets</string>
+    <string name="label_add_amount">+%1$d</string>
+    <string name="label_snooze_presets">Snooze Presets (Minutes)</string>
+
+
+    <string name="label_default_snooze">Default Snooze Duration</string>
+    <string name="label_default_timeout">Default Auto-Stop Timeout</string>
+    <string name="label_minutes_fmt">%1$d min</string>
+
+    <string name="label_timer_ringtone">Timer Ringtone</string>
+    <string name="label_timer_volume">Timer Volume</string>
+    <string name="label_timer_tts">Text-to-Speech</string>
+    <string name="label_timer_tts_text">Custom Text</string>
+    <string name="hint_timer_tts_text">e.g., "Time is up!"</string>
+
+    <string name="title_set_snooze">Set Snooze Duration (min)</string>
+    <string name="title_set_timeout">Set Timeout (min)</string>
+    <string name="label_use_global_default">Use Default (%1$d min)</string>
+    <string name="label_snooze_duration">Snooze Duration</string>
+    <string name="label_auto_stop">Auto-Stop</string>
+    <string name="toast_alarm_stopped">Alarm stopped</string>
+    <string name="toast_alarm_auto_stopped">Alarm timed out</string>
+    <string name="toast_timer_stopped">Timer stopped</string>
+    <string name="label_notify_before">Notify before an alarm starts ringing</string>
+    <string name="desc_notify_before">Posts a notification for a set time before an alarm is scheduled to ring</string>
+    <string name="label_notification_time">Notification time:</string>
+    <string name="title_timer_auto_stop">Timer Ringing Timeout</string>
+    <string name="title_notify_before">Notify before alarm rings</string>
+</resources>
