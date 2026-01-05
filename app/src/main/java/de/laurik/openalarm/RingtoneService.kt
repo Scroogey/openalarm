@@ -417,7 +417,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 PowerManager.SCREEN_BRIGHT_WAKE_LOCK or
                         PowerManager.ACQUIRE_CAUSES_WAKEUP or
                         PowerManager.ON_AFTER_RELEASE,
-                "BestAlarm:WakeLock"
+                "OpenAlarm:WakeLock"
             )
             wakeLock.acquire(safeTimeoutMs + 5000)
 

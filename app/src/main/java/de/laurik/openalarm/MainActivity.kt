@@ -84,7 +84,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            de.lauri.openalarm.ui.theme.BestAlarmTheme(themeMode = themeMode, isPureBlack = isPureBlack) {
+            de.laurik.openalarm.ui.theme.OpenAlarmTheme(themeMode = themeMode, isPureBlack = isPureBlack) {
                 if (showSettings) {
                     SettingsScreen(settingsViewModel, onClose = { showSettings = false })
                 } else {

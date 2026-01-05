@@ -1,4 +1,4 @@
-package de.lauri.openalarm.ui.theme
+package de.laurik.openalarm.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -10,7 +10,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import de.lauri.openalarm.AppThemeMode
+import de.laurik.openalarm.AppThemeMode
 
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,

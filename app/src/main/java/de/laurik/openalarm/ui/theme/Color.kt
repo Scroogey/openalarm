@@ -1,4 +1,4 @@
-package de.lauri.openalarm.ui.theme
+package de.laurik.openalarm.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
