@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import de.laurik.openalarm.utils.AppLogger
+import androidx.compose.ui.platform.LocalContext
 
 /**
  * Manages scheduling, cancellation, and updates for alarms and timers.
@@ -17,6 +19,7 @@ import android.util.Log
  * - Handling different Android versions for alarm scheduling
  */
 class AlarmScheduler(private val context: Context) {
+    val logger = (context as BaseApplication).getLogger()
     companion object {
         private const val TAG = "AlarmScheduler"
     }
@@ -30,7 +33,7 @@ class AlarmScheduler(private val context: Context) {
      */
     fun schedule(alarm: AlarmItem, groupOffset: Int) {
         try {
-            Log.d(TAG, "Scheduling alarm: ID=${alarm.id}, Enabled=${alarm.isEnabled}")
+            logger.d(TAG, "Scheduling alarm: ID=${alarm.id}, Enabled=${alarm.isEnabled}")
 
             if (!alarm.isEnabled) {
                 cancel(alarm)
@@ -71,22 +74,23 @@ class AlarmScheduler(private val context: Context) {
                 minTimestamp = baseTime
             )
 
-            Log.d(TAG, "Calculated trigger time: $triggerTime for alarm ID=${alarm.id}")
+            logger.d(TAG, "Calculated trigger time: $triggerTime for alarm ID=${alarm.id}")
 
             // Safety: Only return if the calculated time is largely in the past (older than buffer)
             // If it's 5 seconds in the past, we still want to schedule it so it fires immediately!
             if (triggerTime <= (now - gracePeriodBuffer)) {
-                Log.w(TAG, "Trigger time is in the past, not scheduling alarm ID=${alarm.id}")
+                logger.w(TAG, "Trigger time is in the past, not scheduling alarm ID=${alarm.id}")
                 return
             }
 
             scheduleExact(triggerTime, alarm.id, alarm.type.name)
             scheduleNotificationUpdate()
+            logger.d(TAG, "Alarm scheduled successfully: ID=${alarm.id}, Time=$triggerTime")
         } catch (e: SecurityException) {
-            Log.e(TAG, "Permission denied to schedule alarm: ID=${alarm.id}", e)
+            logger.e(TAG, "Permission denied to schedule alarm: ID=${alarm.id}", e)
             // Optionally notify the user about permission issues
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to schedule alarm: ID=${alarm.id}", e)
+            logger.e(TAG, "Failed to schedule alarm: ID=${alarm.id}", e)
             // Optionally notify the user about the failure
         }
     }
@@ -100,7 +104,7 @@ class AlarmScheduler(private val context: Context) {
      */
     fun scheduleExact(timeInMillis: Long, alarmId: Int, typeName: String) {
         try {
-            Log.d(TAG, "Scheduling exact alarm: ID=$alarmId, Time=$timeInMillis, Type=$typeName")
+            logger.d(TAG, "Scheduling exact alarm: ID=$alarmId, Time=$timeInMillis, Type=$typeName")
 
             val intent = Intent(context, AlarmReceiver::class.java).apply {
                 putExtra("ALARM_ID", alarmId)
@@ -118,7 +122,7 @@ class AlarmScheduler(private val context: Context) {
             alarmManager.setAlarmClock(alarmInfo, pendingIntent)
             scheduleNotificationUpdate()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to schedule exact alarm: ID=$alarmId", e)
+            logger.e(TAG, "Failed to schedule exact alarm: ID=$alarmId", e)
             // Optionally notify the user or take other action
         }
     }
@@ -129,7 +133,7 @@ class AlarmScheduler(private val context: Context) {
      */
     fun scheduleNotificationUpdate() {
         try {
-            Log.d(TAG, "Scheduling notification update")
+            logger.d(TAG, "Scheduling notification update")
 
             val now = System.currentTimeMillis()
             val nextAlarm = AlarmUtils.getNextAlarm(context)
@@ -138,7 +142,7 @@ class AlarmScheduler(private val context: Context) {
 
             // 1. If disabled or no alarm, clear it immediately
             if (nextAlarm == null || !settings.notifyBeforeEnabled.value) {
-                Log.d(TAG, "Notification update: No alarm or notifications disabled")
+                logger.d(TAG, "Notification update: No alarm or notifications disabled")
                 NotificationRenderer.refreshAll(context)
                 // Cancel any pending lead-time trigger
                 val intent = Intent(context, AlarmReceiver::class.java).apply { action = "UPDATE_NOTIFICATIONS_Background" }
@@ -150,18 +154,18 @@ class AlarmScheduler(private val context: Context) {
             val leadMs = settings.notifyBeforeMinutes.value * 60 * 1000L
             val showNotificationTime = nextAlarm.timestamp - leadMs
 
-            Log.d(TAG, "Next alarm at ${nextAlarm.timestamp}, notification at $showNotificationTime")
+            logger.d(TAG, "Next alarm at ${nextAlarm.timestamp}, notification at $showNotificationTime")
 
             // 2. If it's time (or passed), show it now
             if (now >= showNotificationTime - 5000) { // Small 5s buffer to be safe
-                Log.d(TAG, "Showing notification immediately")
+                logger.d(TAG, "Showing notification immediately")
                 NotificationRenderer.refreshAll(context)
             }
 
             // 3. Always schedule the trigger for the future (either to show it later, or to keep it updated)
             // Note: Even if already showing, we schedule it for the next alarm's lead time to be sure.
             if (showNotificationTime > now) {
-                Log.d(TAG, "Scheduling notification for future: $showNotificationTime")
+                logger.d(TAG, "Scheduling notification for future: $showNotificationTime")
                 val intent = Intent(context, AlarmReceiver::class.java).apply {
                     action = "UPDATE_NOTIFICATIONS_Background"
                 }
@@ -169,29 +173,29 @@ class AlarmScheduler(private val context: Context) {
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         if (alarmManager.canScheduleExactAlarms()) {
-                            Log.d(TAG, "Using exact alarm scheduling")
+                            logger.d(TAG, "Using exact alarm scheduling")
                             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, showNotificationTime, pi)
                         } else {
-                            Log.w(TAG, "Exact alarm permission missing, using fallback")
+                            logger.w(TAG, "Exact alarm permission missing, using fallback")
                             // Fallback to non-exact if permission missing
                             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, showNotificationTime, pi)
                         }
                     } else {
-                        Log.d(TAG, "Using exact alarm scheduling (pre-Android 12)")
+                        logger.d(TAG, "Using exact alarm scheduling (pre-Android 12)")
                         alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, showNotificationTime, pi)
                     }
                 } catch (e: SecurityException) {
-                    Log.e(TAG, "Security exception when scheduling notification", e)
+                    logger.e(TAG, "Security exception when scheduling notification", e)
                     // Fallback to basic set if there are permission issues
                     alarmManager.set(AlarmManager.RTC_WAKEUP, showNotificationTime, pi)
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error scheduling notification", e)
+                    logger.e(TAG, "Error scheduling notification", e)
                     // Fallback to basic set for any other exceptions
                     alarmManager.set(AlarmManager.RTC_WAKEUP, showNotificationTime, pi)
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error in scheduleNotificationUpdate", e)
+            logger.e(TAG, "Error in scheduleNotificationUpdate", e)
             // Optionally notify the user or take other action
         }
     }
@@ -203,7 +207,7 @@ class AlarmScheduler(private val context: Context) {
      */
     fun cancel(alarm: AlarmItem) {
         try {
-            Log.d(TAG, "Canceling alarm: ID=${alarm.id}")
+            logger.d(TAG, "Canceling alarm: ID=${alarm.id}")
 
             val intent = Intent(context, AlarmReceiver::class.java)
             val pendingIntent = PendingIntent.getBroadcast(
@@ -218,7 +222,7 @@ class AlarmScheduler(private val context: Context) {
             // RE-CALCULATE NOTIFICATION: If the soonest alarm was just cancelled, we need a new trigger
             scheduleNotificationUpdate()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to cancel alarm: ID=${alarm.id}", e)
+            logger.e(TAG, "Failed to cancel alarm: ID=${alarm.id}", e)
             // Optionally notify the user or take other action
         }
     }

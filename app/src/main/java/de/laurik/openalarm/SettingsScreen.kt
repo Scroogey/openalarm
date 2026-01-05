@@ -33,6 +33,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import de.laurik.openalarm.LogViewerScreen
 
 @Composable
 fun SettingsScreen(
@@ -378,7 +380,31 @@ fun SettingsScreen(
                     }
                 )
 
+                HorizontalDivider(Modifier.padding(vertical = 16.dp))
+
+                // --- SYSTEM ---
+                Text(
+                    "Advanced",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.height(8.dp))
+
+                ListItem(
+                    headlineContent = { Text("View Logs") },
+                    supportingContent = { Text("View application logs for debugging") },
+                    modifier = Modifier.clickable { currentSubScreen = "LOG_VIEWER" }
+                )
+
                 // --- DIALOGS ---
+                if (currentSubScreen == "LOG_VIEWER") {
+                    Dialog(
+                        onDismissRequest = { currentSubScreen = null },
+                        properties = DialogProperties(usePlatformDefaultWidth = false),
+                        content = {
+                            LogViewerScreen(onBack = { currentSubScreen = null })
+                        }
+                    )                }
                 if (showAdjustEdit) {
                     PresetEditDialog(
                         title = stringResource(R.string.title_edit_adjust_presets),

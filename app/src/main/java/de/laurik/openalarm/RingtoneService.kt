@@ -14,6 +14,7 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import androidx.core.net.toUri
+import de.laurik.openalarm.utils.AppLogger
 
 /**
  * Service that handles playing alarm tones, managing audio focus, and handling actions like snooze and stop.
@@ -27,6 +28,7 @@ import androidx.core.net.toUri
  * - Managing foreground notifications
  */
 class RingtoneService : Service(), TextToSpeech.OnInitListener {
+    val logger = (this.applicationContext as BaseApplication).getLogger()
     companion object {
         private const val TAG = "RingtoneService"
     }
@@ -66,7 +68,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG, "Service created")
+        logger.d(TAG, "Service created")
 
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         tts = TextToSpeech(this, this)
@@ -98,7 +100,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 }
             })
         } else {
-            Log.e(TAG, "TextToSpeech initialization failed")
+            logger.e(TAG, "TextToSpeech initialization failed")
         }
     }
 
@@ -106,21 +108,21 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
      * Handles the intent when the service is started.
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "onStartCommand called with intent: ${intent?.action}")
+        logger.d(TAG, "onStartCommand called with intent: ${intent?.action}")
 
         if (intent == null) {
-            Log.w(TAG, "Service restarted with null intent (Sticky). Stopping.")
+            logger.w(TAG, "Service restarted with null intent (Sticky). Stopping.")
             stopSelf()
             return START_NOT_STICKY
         }
 
         serviceScope.launch {
             try {
-                Log.d(TAG, "Loading database...")
+                logger.d(TAG, "Loading database...")
                 AlarmRepository.ensureLoaded(applicationContext)
                 handleIntent(intent)
             } catch (e: Exception) {
-                Log.e(TAG, "Error in onStartCommand", e)
+                logger.e(TAG, "Error in onStartCommand", e)
                 // Optionally notify the user or take other action
             }
         }
@@ -134,7 +136,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
      */
     private fun handleIntent(intent: Intent?) {
         val action = intent?.action
-        Log.d(TAG, "Handling action: $action")
+        logger.d(TAG, "Handling action: $action")
 
         // --- STOP ---
         if (action == "STOP_RINGING" || action == "STOP") {
@@ -164,13 +166,13 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     private fun handleStopAction(intent: Intent?) {
         try {
             val targetId = intent?.getIntExtra("TARGET_ID", -1) ?: -1
-            Log.d(TAG, "Stop action received for ID: $targetId")
+            logger.d(TAG, "Stop action received for ID: $targetId")
 
             if (targetId == currentRingingId || targetId == -1) {
                 handleStopCurrentAlarm()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling stop action", e)
+            logger.e(TAG, "Error handling stop action", e)
             // Optionally notify the user or take other action
         }
     }
@@ -201,7 +203,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
             // 3. Reset Snooze & Override, applying Skip if needed
             if (alarm.isSelfDestroying) {
-                Log.d(TAG, "Alarm is self-destroying, deleting: ID=${alarm.id}")
+                logger.d(TAG, "Alarm is self-destroying, deleting: ID=${alarm.id}")
                 AlarmRepository.deleteAlarm(this, alarm)
             } else {
                 val updated = alarm.copy(
@@ -211,7 +213,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                     temporaryOverrideTime = null,
                     skippedUntil = if (shouldSkip) normalTime + 1000 else alarm.skippedUntil
                 )
-                Log.d(TAG, "Updating alarm state: ID=${alarm.id}, Skip=$shouldSkip")
+                logger.d(TAG, "Updating alarm state: ID=${alarm.id}, Skip=$shouldSkip")
                 AlarmRepository.updateAlarm(this, updated)
             }
 
@@ -221,7 +223,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
         StatusHub.trigger(StatusEvent.Stopped(currentRingingId, currentType))
         if (currentType == "TIMER") {
-            Log.d(TAG, "Removing timer: ID=$currentRingingId")
+            logger.d(TAG, "Removing timer: ID=$currentRingingId")
             AlarmRepository.removeTimer(this, currentRingingId)
         }
 
@@ -243,11 +245,11 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             val customMins = if (intent?.action == "SNOOZE_CUSTOM") intent.getIntExtra("MINUTES", 10) else null
 
             if (alarm != null) {
-                Log.d(TAG, "Snoozing alarm: ID=$finalId, Custom mins=$customMins")
+                logger.d(TAG, "Snoozing alarm: ID=$finalId, Custom mins=$customMins")
                 handleSnooze(alarm, isAuto = false, customMinutes = customMins)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling snooze action", e)
+            logger.e(TAG, "Error handling snooze action", e)
             // Optionally notify the user or take other action
         }
     }
@@ -261,11 +263,11 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             val targetId = intent?.getIntExtra("TARGET_ID", currentRingingId) ?: currentRingingId
 
             if (targetId == -1) {
-                Log.w(TAG, "Add time action with invalid target ID")
+                logger.w(TAG, "Add time action with invalid target ID")
                 return
             }
 
-            Log.d(TAG, "Adding time to timer: ID=$targetId, Seconds=$seconds")
+            logger.d(TAG, "Adding time to timer: ID=$targetId, Seconds=$seconds")
 
             val timer = AlarmRepository.getTimer(targetId)
             if (timer != null) {
@@ -302,7 +304,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 NotificationRenderer.refreshAll(this@RingtoneService)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling add time action", e)
+            logger.e(TAG, "Error handling add time action", e)
             // Optionally notify the user or take other action
         }
     }
@@ -315,7 +317,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             val newId = intent?.getIntExtra("ALARM_ID", 0) ?: 0
             val newType = intent?.getStringExtra("ALARM_TYPE") ?: "ALARM"
 
-            Log.d(TAG, "Starting new ringing for ID: $newId, Type: $newType")
+            logger.d(TAG, "Starting new ringing for ID: $newId, Type: $newType")
 
             if (currentRingingId == -1) {
                 startRinging(newId, newType)
@@ -323,7 +325,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             }
 
             if (currentRingingId == newId) {
-                Log.d(TAG, "Already ringing ID: $newId, ignoring")
+                logger.d(TAG, "Already ringing ID: $newId, ignoring")
                 return
             }
 
@@ -332,7 +334,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             NotificationRenderer.showSilentRinging(this, currentRingingId, currentType)
             startRinging(newId, newType)
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling start new action", e)
+            logger.e(TAG, "Error handling start new action", e)
             // Optionally notify the user or take other action
         }
     }
@@ -347,16 +349,16 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         if (type == "ALARM") {
             val alarmCheck = AlarmRepository.getAlarm(id)
             if (alarmCheck == null) {
-                Log.w(TAG, "Attempted to ring non-existent alarm ID: $id. Aborting.")
+                logger.w(TAG, "Attempted to ring non-existent alarm ID: $id. Aborting.")
                 stopSelf()
                 return
             }
         }
         try {
-            Log.d(TAG, "Starting ringing for ID: $id, Type: $type")
+            logger.d(TAG, "Starting ringing for ID: $id, Type: $type")
 
             if (id <= 0) {
-                Log.e(TAG, "Aborting ring for invalid ID: $id")
+                logger.e(TAG, "Aborting ring for invalid ID: $id")
                 stopSelf()
                 return
             }
@@ -389,21 +391,21 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
             val timeoutMinutes = when {
                 type == "ALARM" && alarmItem != null && alarmItem.autoStopDuration != null -> {
-                    Log.d(TAG, "Using CUSTOM alarm timeout: ${alarmItem.autoStopDuration} min")
+                    logger.d(TAG, "Using CUSTOM alarm timeout: ${alarmItem.autoStopDuration} min")
                     alarmItem.autoStopDuration
                 }
                 type == "ALARM" -> {
-                    Log.d(TAG, "Using GLOBAL alarm timeout: $globalAutoStop min")
+                    logger.d(TAG, "Using GLOBAL alarm timeout: $globalAutoStop min")
                     globalAutoStop
                 }
                 else -> {
-                    Log.d(TAG, "Using TIMER timeout: $timerAutoStop min")
+                    logger.d(TAG, "Using TIMER timeout: $timerAutoStop min")
                     timerAutoStop
                 }
             }
 
             val safeTimeoutMs = (timeoutMinutes.toLong() * 60 * 1000).coerceAtLeast(10000L)
-            Log.d(TAG, "Setting timeout for $safeTimeoutMs ms")
+            logger.d(TAG, "Setting timeout for $safeTimeoutMs ms")
 
             timeoutJob?.cancel()
             timeoutJob = serviceScope.launch {
@@ -431,8 +433,12 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                     startForeground(id, notification)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to start foreground", e)
-                startForeground(id, notification)
+                logger.e(TAG, "Failed to start foreground", e)
+                if (Build.VERSION.SDK_INT >= 29) {
+                    try { startForeground(id, notification) } catch (e2: Exception) {
+                        logger.e(TAG, "Failed to start fallback foreground", e2)
+                    }
+                }
             }
             // Then when notification and foreground is there, start audio to avoid issues with no notifications but alarm ringing
             startAudioWithFeatures()
@@ -451,11 +457,11 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             try {
                 startActivity(fullScreenIntent)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to start activity", e)
+                logger.e(TAG, "Failed to start activity", e)
             }
             NotificationRenderer.refreshAll(this)
         } catch (e: Exception) {
-            Log.e(TAG, "Error in startRinging", e)
+            logger.e(TAG, "Error in startRinging", e)
             // Optionally notify the user or take other action
         }
     }
@@ -467,32 +473,32 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
      */
     private fun rescheduleAlarm(alarmId: Int) {
         try {
-            Log.d(TAG, "Rescheduling alarm: ID=$alarmId")
+            logger.d(TAG, "Rescheduling alarm: ID=$alarmId")
 
             val alarm = AlarmRepository.getAlarm(alarmId) ?: run {
-                Log.w(TAG, "Alarm not found for rescheduling: ID=$alarmId")
+                logger.w(TAG, "Alarm not found for rescheduling: ID=$alarmId")
                 return
             }
 
             if (alarm.isSelfDestroying) {
-                Log.d(TAG, "Alarm is self-destroying, deleting: ID=$alarmId")
+                logger.d(TAG, "Alarm is self-destroying, deleting: ID=$alarmId")
                 AlarmRepository.deleteAlarm(this, alarm)
                 return
             }
 
             if (alarm.isSingleUse || (alarm.daysOfWeek.isEmpty() && alarm.temporaryOverrideTime == null)) {
                 val updated = alarm.copy(isEnabled = false)
-                Log.d(TAG, "Disabling single-use alarm: ID=$alarmId")
+                logger.d(TAG, "Disabling single-use alarm: ID=$alarmId")
                 AlarmRepository.updateAlarm(this, updated)
             } else {
                 val scheduler = AlarmScheduler(this)
                 val group = AlarmRepository.groups.find { it.alarms.any { a -> a.id == alarm.id } }
                 val offset = group?.offsetMinutes ?: 0
-                Log.d(TAG, "Scheduling next occurrence with offset: $offset")
+                logger.d(TAG, "Scheduling next occurrence with offset: $offset")
                 scheduler.schedule(alarm, offset)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error in rescheduleAlarm", e)
+            logger.e(TAG, "Error in rescheduleAlarm", e)
             // Optionally notify the user or take other action
         }
     }
@@ -523,12 +529,12 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             }
 
             if (res == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-                Log.d(TAG, "Audio focus granted")
+                logger.d(TAG, "Audio focus granted")
             } else {
-                Log.w(TAG, "Audio focus request failed")
+                logger.w(TAG, "Audio focus request failed")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error requesting audio focus", e)
+            logger.e(TAG, "Error requesting audio focus", e)
             // Continue without audio focus if possible
         }
     }
@@ -544,9 +550,9 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 @Suppress("DEPRECATION")
                 audioManager?.abandonAudioFocus(audioFocusListener)
             }
-            Log.d(TAG, "Audio focus abandoned")
+            logger.d(TAG, "Audio focus abandoned")
         } catch (e: Exception) {
-            Log.e(TAG, "Error abandoning audio focus", e)
+            logger.e(TAG, "Error abandoning audio focus", e)
         }
     }
 
@@ -559,10 +565,10 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     private fun handleTimeout(id: Int, type: String) {
         try {
             val now = System.currentTimeMillis()
-            Log.d(TAG, "TIMEOUT triggered at $now for $id ($type)")
+            logger.d(TAG, "TIMEOUT triggered at $now for $id ($type)")
 
             if (id != currentRingingId) {
-                Log.d(TAG, "Timeout ignored: triggered for $id but current is $currentRingingId")
+                logger.d(TAG, "Timeout ignored: triggered for $id but current is $currentRingingId")
                 return
             }
 
@@ -571,10 +577,10 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             val alarm = if (type == "ALARM") AlarmRepository.getAlarm(id) else null
 
             if (alarm != null && alarm.isSnoozeEnabled && (alarm.maxSnoozes == null || alarm.currentSnoozeCount < alarm.maxSnoozes!!)) {
-                Log.d(TAG, "Auto-snoozing alarm $id")
+                logger.d(TAG, "Auto-snoozing alarm $id")
                 handleSnooze(alarm, isAuto = true)
             } else {
-                Log.d(TAG, "Stopping alarm $id after timeout (Snooze disabled or limit reached)")
+                logger.d(TAG, "Stopping alarm $id after timeout (Snooze disabled or limit reached)")
                 stopForeground(true)
                 stopAll()
 
@@ -595,7 +601,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 checkStackAndResume()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error in handleTimeout", e)
+            logger.e(TAG, "Error in handleTimeout", e)
             // Optionally notify the user or take other action
         }
     }
@@ -609,7 +615,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
      */
     private fun handleSnooze(alarm: AlarmItem, isAuto: Boolean, customMinutes: Int? = null) {
         try {
-            Log.d(TAG, "Handling snooze for alarm: ID=${alarm.id}, Auto=$isAuto, CustomMins=$customMinutes")
+            logger.d(TAG, "Handling snooze for alarm: ID=${alarm.id}, Auto=$isAuto, CustomMins=$customMinutes")
 
             val settingsRepo = SettingsRepository.getInstance(applicationContext)
             val globalSnooze = settingsRepo.defaultSnooze.value
@@ -636,7 +642,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             NotificationRenderer.refreshAll(this)
             checkStackAndResume()
         } catch (e: Exception) {
-            Log.e(TAG, "Error in handleSnooze", e)
+            logger.e(TAG, "Error in handleSnooze", e)
             // Optionally notify the user or take other action
         }
     }
@@ -647,7 +653,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
      */
     private fun startAudioWithFeatures() {
         try {
-            Log.d(TAG, "Starting audio with features")
+            logger.d(TAG, "Starting audio with features")
 
             // Clean up any existing resources
             try { mediaPlayer?.stop(); mediaPlayer?.release() } catch(e: Exception) {}
@@ -691,7 +697,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 customTtsText = null
             }
 
-            Log.d(TAG, "Audio config: URI=$uriToPlay, Volume=$targetSliderValue, Fade=$fadeSeconds, Vibration=$useVibration, TTS=$ttsMode")
+            logger.d(TAG, "Audio config: URI=$uriToPlay, Volume=$targetSliderValue, Fade=$fadeSeconds, Vibration=$useVibration, TTS=$ttsMode")
 
             // --- VOLUME FORCE ---
             // If app slider is ~100%, set System Stream to MAX.
@@ -699,11 +705,11 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 try {
                     val max = audioManager?.getStreamMaxVolume(AudioManager.STREAM_ALARM) ?: 0
                     if (max > 0) {
-                        Log.d(TAG, "Setting system volume to max: $max")
+                        logger.d(TAG, "Setting system volume to max: $max")
                         audioManager?.setStreamVolume(AudioManager.STREAM_ALARM, max, 0)
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error setting system volume", e)
+                    logger.e(TAG, "Error setting system volume", e)
                 }
             }
 
@@ -728,14 +734,13 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
                     setOnPreparedListener { mp ->
                         mp.start()
-                        Log.d(TAG, "Media player started via Async")
+                        logger.d(TAG, "Media player started via Async")
                     }
                     prepareAsync()
-                    start()
                 }
-                Log.d(TAG, "Media player started successfully")
+                logger.d(TAG, "Media player started successfully")
             } catch(e: Exception) {
-                Log.e(TAG, "Error starting media player", e)
+                logger.e(TAG, "Error starting media player", e)
                 // Optionally notify the user or take other action
             }
 
@@ -752,9 +757,9 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                     } else {
                         @Suppress("DEPRECATION") vibrator?.vibrate(pattern, 0)
                     }
-                    Log.d(TAG, "Vibration started successfully")
+                    logger.d(TAG, "Vibration started successfully")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error starting vibration", e)
+                    logger.e(TAG, "Error starting vibration", e)
                     // Continue without vibration
                 }
             }
@@ -763,7 +768,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 try {
                     // Handle fade-in effect
                     if (fadeSeconds > 0) {
-                        Log.d(TAG, "Starting fade-in effect for $fadeSeconds seconds")
+                        logger.d(TAG, "Starting fade-in effect for $fadeSeconds seconds")
                         val steps = fadeSeconds * 10
                         val sliderStep = targetSliderValue / steps.toFloat()
                         var currentSlider = 0.0f
@@ -788,18 +793,18 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                         }
 
                         if (isTtsReady) {
-                            Log.d(TAG, "Starting TTS loop")
+                            logger.d(TAG, "Starting TTS loop")
                             startTtsLoop()
                         } else {
-                            Log.w(TAG, "TTS not ready after $attempts attempts")
+                            logger.w(TAG, "TTS not ready after $attempts attempts")
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error in fade job", e)
+                    logger.e(TAG, "Error in fade job", e)
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error in startAudioWithFeatures", e)
+            logger.e(TAG, "Error in startAudioWithFeatures", e)
             // Optionally notify the user or take other action
         }
     }
@@ -820,7 +825,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error in TTS loop", e)
+            logger.e(TAG, "Error in TTS loop", e)
         }
     }
 
@@ -847,7 +852,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 tts?.speak(text, TextToSpeech.QUEUE_ADD, params, "time_speak")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error in speakInfo", e)
+            logger.e(TAG, "Error in speakInfo", e)
         }
     }
 
@@ -859,13 +864,13 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             mediaPlayer?.stop()
             mediaPlayer?.release()
         } catch (e: Exception) {
-            Log.e(TAG, "Error stopping media player", e)
+            logger.e(TAG, "Error stopping media player", e)
         }
 
         try {
             vibrator?.cancel()
         } catch (e: Exception) {
-            Log.e(TAG, "Error canceling vibration", e)
+            logger.e(TAG, "Error canceling vibration", e)
         }
 
         if (tts?.isSpeaking == true) {
@@ -889,9 +894,9 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             tts?.shutdown()
             serviceScope.cancel()
             AlarmRepository.setCurrentRingingId(-1)
-            Log.d(TAG, "Service destroyed")
+            logger.d(TAG, "Service destroyed")
         } catch (e: Exception) {
-            Log.e(TAG, "Error in onDestroy", e)
+            logger.e(TAG, "Error in onDestroy", e)
         }
     }
 
@@ -906,13 +911,13 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                     checkStackAndResume()
                     return
                 }
-                Log.d(TAG, "Resuming interrupted item: ID=${nextItem.id}, Type=${nextItem.type}")
+                logger.d(TAG, "Resuming interrupted item: ID=${nextItem.id}, Type=${nextItem.type}")
                 startRinging(nextItem.id, nextItem.type)
             } else {
                 stopSelf()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error in checkStackAndResume", e)
+            logger.e(TAG, "Error in checkStackAndResume", e)
             stopSelf()
         }
     }

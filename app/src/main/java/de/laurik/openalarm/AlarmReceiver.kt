@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import de.laurik.openalarm.utils.AppLogger
 import kotlinx.coroutines.launch
 
 /**
@@ -25,21 +26,23 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
+        val logger = AppLogger(context)
+
         // 1. Tell Android "Wait, I'm doing background work"
         val pendingResult = goAsync()
-        Log.d(TAG, "Received intent: ${intent.action}")
+        logger.d(TAG, "Received intent: ${intent.action}")
 
         // 2. Launch a coroutine to handle the intent asynchronously
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
             try {
                 // 3. Load DB (Suspends here, doesn't block UI)
-                Log.d(TAG, "Loading database...")
+                logger.d(TAG, "Loading database...")
                 AlarmRepository.ensureLoaded(context)
 
                 // 4. Proceed with logic
                 handleIntent(context, intent)
             } catch (e: Exception) {
-                Log.e(TAG, "Error processing intent", e)
+                logger.e(TAG, "Error processing intent", e)
                 // Optionally notify the user about the error
             } finally {
                 // 5. Tell Android "I'm done"
@@ -55,15 +58,17 @@ class AlarmReceiver : BroadcastReceiver() {
      * @param intent The received intent
      */
     private fun handleIntent(context: Context, intent: Intent) {
+        val logger = AppLogger(context)
+
         val receivedAction = intent.action
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-        Log.d(TAG, "Handling action: $receivedAction")
+        logger.d(TAG, "Handling action: $receivedAction")
 
         try {
             // Handle notification updates
             if (receivedAction == "UPDATE_NOTIFICATIONS_Background") {
-                Log.d(TAG, "Updating notifications")
+                logger.d(TAG, "Updating notifications")
                 NotificationRenderer.refreshAll(context)
                 return
             }
@@ -89,7 +94,7 @@ class AlarmReceiver : BroadcastReceiver() {
             // --- START RINGING (default action) ---
             handleStartRinging(context, intent, am)
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling intent action: $receivedAction", e)
+            logger.e(TAG, "Error handling intent action: $receivedAction", e)
             // Optionally notify the user about the error
         }
     }
@@ -98,11 +103,13 @@ class AlarmReceiver : BroadcastReceiver() {
      * Handles the stop action for timers or alarms.
      */
     private fun handleStopAction(context: Context, intent: Intent, am: AlarmManager) {
+        val logger = AppLogger(context)
+
         val id = intent.getIntExtra("TARGET_ID", -1).takeIf { it != -1 }
             ?: intent.getIntExtra("TIMER_ID", -1)
 
         if (id != -1) {
-            Log.d(TAG, "Stopping ID: $id")
+            logger.d(TAG, "Stopping ID: $id")
 
             // 1. Data Cleanup
             AlarmRepository.removeTimer(context, id)
@@ -153,9 +160,11 @@ class AlarmReceiver : BroadcastReceiver() {
      * Handles the cancel snooze action.
      */
     private fun handleCancelSnooze(context: Context, intent: Intent) {
+        val logger = AppLogger(context)
+
         val id = intent.getIntExtra("ALARM_ID", -1)
         if (id != -1) {
-            Log.d(TAG, "Canceling snooze for ID: $id")
+            logger.d(TAG, "Canceling snooze for ID: $id")
 
             // 1. Get the alarm
             val alarm = AlarmRepository.getAlarm(id)
@@ -181,7 +190,9 @@ class AlarmReceiver : BroadcastReceiver() {
      * Handles the skip next action.
      */
     private fun handleSkipNext(context: Context) {
-        Log.d(TAG, "Skipping next alarm occurrence")
+        val logger = AppLogger(context)
+
+        logger.d(TAG, "Skipping next alarm occurrence")
         AlarmUtils.skipNextAlarm(context)
         NotificationRenderer.refreshAll(context)
     }
@@ -190,9 +201,11 @@ class AlarmReceiver : BroadcastReceiver() {
      * Handles the start ringing action.
      */
     private fun handleStartRinging(context: Context, intent: Intent, am: AlarmManager) {
+        val logger = AppLogger(context)
+
         val id = intent.getIntExtra("ALARM_ID", 0)
         if (id == 0) {
-            Log.e(TAG, "Error: Received Alarm with ID 0")
+            logger.e(TAG, "Error: Received Alarm with ID 0")
             return
         }
 
@@ -202,7 +215,7 @@ class AlarmReceiver : BroadcastReceiver() {
             else -> type
         }
 
-        Log.d(TAG, "Starting ringing for ID: $id, Type: $resolvedType")
+        logger.d(TAG, "Starting ringing for ID: $id, Type: $resolvedType")
 
         val serviceIntent = Intent(context, RingtoneService::class.java).apply {
             putExtra("ALARM_ID", id)
@@ -216,7 +229,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 context.startService(serviceIntent)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to start ringing service for ID: $id", e)
+            logger.e(TAG, "Failed to start ringing service for ID: $id", e)
             // Optionally notify the user about the failure
         }
     }

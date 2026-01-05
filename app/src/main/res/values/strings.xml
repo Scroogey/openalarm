@@ -215,4 +215,10 @@
     <string name="label_notification_time">Notification time:</string>
     <string name="title_timer_auto_stop">Timer Ringing Timeout</string>
     <string name="title_notify_before">Notify before alarm rings</string>
+    <string name="log_viewer_title">View Application Logs</string>
+    <string name="log_search_placeholder">Search logs</string>
+    <string name="log_no_entries">Nothing found</string>
+    <string name="log_refresh">Refresh logs</string>
+    <string name="log_clear">Clear log</string>
+    <string name="log_share">Share logs</string>
 </resources>
