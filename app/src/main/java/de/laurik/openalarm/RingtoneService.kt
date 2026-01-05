@@ -1,14 +1,18 @@
 package de.laurik.openalarm
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.*
 import android.os.*
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import android.util.Log
 import android.widget.Toast
+import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -28,9 +32,17 @@ import de.laurik.openalarm.utils.AppLogger
  * - Managing foreground notifications
  */
 class RingtoneService : Service(), TextToSpeech.OnInitListener {
-    val logger = (this.applicationContext as BaseApplication).getLogger()
+    private val logger by lazy {
+        try {
+            (applicationContext as BaseApplication).getLogger()
+        } catch (e: Exception) {
+            // Fallback if casting fails (e.g. during heavy refactors/instant run)
+            AppLogger(applicationContext)
+        }
+    }
     companion object {
         private const val TAG = "RingtoneService"
+        private const val LOADING_NOTIF_ID = 69999
     }
 
     private var mediaPlayer: MediaPlayer? = null
@@ -116,6 +128,17 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             return START_NOT_STICKY
         }
 
+        val placeholderNotif = createPlaceholderNotification()
+        try {
+            if (Build.VERSION.SDK_INT >= 29) {
+                startForeground(LOADING_NOTIF_ID, placeholderNotif, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+            } else {
+                startForeground(LOADING_NOTIF_ID, placeholderNotif)
+            }
+        } catch (e: Exception) {
+            logger.e(TAG, "Failed to start placeholder foreground", e)
+        }
+
         serviceScope.launch {
             try {
                 logger.d(TAG, "Loading database...")
@@ -123,10 +146,33 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 handleIntent(intent)
             } catch (e: Exception) {
                 logger.e(TAG, "Error in onStartCommand", e)
-                // Optionally notify the user or take other action
+                stopSelf()
             }
         }
         return START_NOT_STICKY
+    }
+
+    /**
+     * New helper for lightweight notification without DB access to instantly start ringing
+     **/
+    private fun createPlaceholderNotification(): Notification {
+        val channelId = "ALARM_CHANNEL_ID"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val chan =
+                NotificationChannel(channelId, "Alarm Ringing", NotificationManager.IMPORTANCE_HIGH)
+            chan.setSound(null, null)
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.createNotificationChannel(chan)
+        }
+
+        return NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle("Alarm")
+            .setContentText("Loading...")
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setOngoing(true)
+            .build()
     }
 
     /**
@@ -432,6 +478,10 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 } else {
                     startForeground(id, notification)
                 }
+                if (id != LOADING_NOTIF_ID) {
+                    val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                    nm.cancel(LOADING_NOTIF_ID)
+                }
             } catch (e: Exception) {
                 logger.e(TAG, "Failed to start foreground", e)
                 if (Build.VERSION.SDK_INT >= 29) {
@@ -654,12 +704,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     private fun startAudioWithFeatures() {
         try {
             logger.d(TAG, "Starting audio with features")
-
-            // Clean up any existing resources
-            try { mediaPlayer?.stop(); mediaPlayer?.release() } catch(e: Exception) {}
-            try { vibrator?.cancel() } catch(e: Exception) {}
-            fadeJob?.cancel()
-            ttsJob?.cancel()
+            stopAll() // clean existing stuff
 
             val settingsRepo = SettingsRepository.getInstance(applicationContext)
             val defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
