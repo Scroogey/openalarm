@@ -223,6 +223,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("ALARM_ID", id)
             putExtra("ALARM_TYPE", resolvedType)
             putExtra("ALARM_LABEL", label)
+            putExtra("TRIGGER_TIME", System.currentTimeMillis())
         }
 
         try {

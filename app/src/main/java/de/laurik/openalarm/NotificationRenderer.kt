@@ -22,11 +22,12 @@ object NotificationRenderer {
 
         // 1. UPDATE TIMERS
         AlarmRepository.activeTimers.forEach { timer ->
-            if (timer.id == AlarmRepository.currentRingingId) return@forEach
-
-            // Generate notification using shared logic
-            val note = createNotification(context, timer.id, "TIMER", isRinging = false, timerOverride = timer)
-            nm.notify(timer.id, note)
+            if (timer.id != AlarmRepository.currentRingingId) {
+                val note = createNotification(context, timer.id, "TIMER", isRinging = false, timerOverride = timer)
+                nm.notify(timer.id, note)
+            } else {
+                nm.cancel(timer.id)
+            }
         }
 
         // 1.5 UPDATE INTERRUPTED ALARMS (Silent Ringing)
@@ -45,8 +46,20 @@ object NotificationRenderer {
         updateNextAlarm(context, nm, now, isSnoozing = snoozedAlarm != null)
     }
 
-    fun buildRingingNotification(context: Context, id: Int, type: String, label: String = ""): Notification {
+    fun buildRingingNotification(context: Context, id: Int, type: String, label: String = "", triggerTime: Long): Notification {
         val channelId = "ALARM_CHANNEL_ID"
+        val now = System.currentTimeMillis()
+        val elapsedNow = SystemClock.elapsedRealtime()
+
+        // Calculate Base Time relative to the original trigger time.
+        val baseTime = if (type == "TIMER") {
+            val timer = AlarmRepository.getTimer(id)
+            val endTime = timer?.endTime ?: now
+            elapsedNow - (now - endTime)
+        } else {
+            // For Alarms, use the trigger time passed from Service (which comes from Queue or Intent)
+            elapsedNow - (now - triggerTime)
+        }
 
         val title = if (type == "TIMER") {
             context.getString(R.string.notif_timer_done)
@@ -71,21 +84,6 @@ object NotificationRenderer {
 
         val layout = if (type == "TIMER") R.layout.notification_timer_done else R.layout.notification_call_style
         val color = if (type == "TIMER") AlarmRepository.TIMER_DONE_COLOR else AlarmRepository.NOTIF_COLOR
-        val now = System.currentTimeMillis()
-        val elapsedNow = SystemClock.elapsedRealtime()
-
-        val baseTime = if (type == "TIMER") {
-            val timer = AlarmRepository.getTimer(id)
-            val endTime = timer?.endTime ?: now
-            val timeSinceFinish = now - endTime
-            elapsedNow - timeSinceFinish
-        } else {
-            val alarm = AlarmRepository.getAlarm(id)
-            val triggerTime = alarm?.lastTriggerTime ?: now
-            val effectiveTrigger = if (triggerTime > 0) triggerTime else now
-            val durationRinging = now - effectiveTrigger
-            elapsedNow - durationRinging
-        }
 
         // Intents
         val fullScreenIntent = Intent(context, RingActivity::class.java).apply {
