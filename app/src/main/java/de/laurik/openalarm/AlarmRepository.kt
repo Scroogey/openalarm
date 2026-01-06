@@ -220,8 +220,16 @@ object AlarmRepository {
     }
 
     fun addInterruptedItem(context: Context, item: InterruptedItem) {
+        // Enforce uniqueness: Remove existing entry for this ID to prevent duplicates
+        InternalDataStore.interruptedItems.removeAll { it.id == item.id }
         InternalDataStore.interruptedItems.add(item)
-        scope.launch { AppDatabase.getDatabase(context).alarmDao().insertInterrupted(item) }
+        scope.launch { 
+            with(AppDatabase.getDatabase(context).alarmDao()) {
+                // Remove old DB entry to be safe if strictly insert
+                 deleteInterrupted(item) 
+                 insertInterrupted(item)
+            }
+        }
     }
 
     fun popInterruptedItem(context: Context): InterruptedItem? {

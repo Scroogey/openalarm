@@ -102,6 +102,7 @@ data class InterruptedItem(
     val dbId: Int = 0, // Auto-id for DB storage
     val id: Int,       // The actual Alarm/Timer ID
     val type: String,
+    val label: String = "",
     val timestamp: Long
 )
 

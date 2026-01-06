@@ -125,14 +125,15 @@ class AlarmReceiver : BroadcastReceiver() {
             )
             am.cancel(pi)
 
-            // 3. Stop Audio (if ringing)
+            // 3. Stop Audio (if ringing or in background)
+            val stopSvc = Intent(context, RingtoneService::class.java).apply {
+                action = "STOP_RINGING"
+                putExtra("TARGET_ID", id)
+            }
+            context.startService(stopSvc)
+
             if (AlarmRepository.currentRingingId == id) {
                 AlarmRepository.setCurrentRingingId(-1)
-                val stopSvc = Intent(context, RingtoneService::class.java).apply {
-                    action = "STOP_RINGING"
-                    putExtra("TARGET_ID", id)
-                }
-                context.startService(stopSvc)
             }
 
             val type = if (id > 1000) "TIMER" else "ALARM"
@@ -217,9 +218,11 @@ class AlarmReceiver : BroadcastReceiver() {
 
         logger.d(TAG, "Starting ringing for ID: $id, Type: $resolvedType")
 
+        val label = intent.getStringExtra("ALARM_LABEL") ?: ""
         val serviceIntent = Intent(context, RingtoneService::class.java).apply {
             putExtra("ALARM_ID", id)
             putExtra("ALARM_TYPE", resolvedType)
+            putExtra("ALARM_LABEL", label)
         }
 
         try {

@@ -61,9 +61,10 @@
 
     <!-- Notifications -->
     <string name="notif_timer_done">Timer Done!</string>
-    <string name="notif_alarm_set_for">Wake Up! Alarm set for %1$s</string>
-    <string name="notif_alarm_set_for_with_label">Wake Up! Alarm "%1s" set for %2$s</string>
-    <string name="notif_alarm_ringing">Wake Up! Alarm is ringing</string>
+    <string name="notif_alarm_set_for">Alarm set for %1$s</string>
+    <string name="notif_alarm_set_for_with_label">Alarm "%1$s" set for %2$s</string>
+    <string name="notif_alarm_ringing">Alarm is ringing</string>
+    <string name="notif_alarm_silent_ringing">Alarm "%1$s" is ringing (Silent)</string>
     <string name="notif_timer_running">Timer Running</string>
     <string name="notif_wake_up">Wake Up!</string>
     <string name="notif_alarm_missed">Alarm missed</string>

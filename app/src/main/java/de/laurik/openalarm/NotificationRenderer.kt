@@ -29,6 +29,11 @@ object NotificationRenderer {
             nm.notify(timer.id, note)
         }
 
+        // 1.5 UPDATE INTERRUPTED ALARMS (Silent Ringing)
+        InternalDataStore.interruptedItems.forEach { item ->
+             showSilentRinging(context, item.id, item.type, item.label)
+        }
+
         // 2. SNOOZE
         val snoozedAlarm = AlarmRepository.groups.flatMap { it.alarms }
             .filter { it.snoozeUntil != null && it.snoozeUntil!! > now }
@@ -164,8 +169,8 @@ object NotificationRenderer {
         return builder.build()
     }
 
-    fun showSilentRinging(context: Context, id: Int, type: String) {
-        val note = createNotification(context, id, type, isRinging = false)
+    fun showSilentRinging(context: Context, id: Int, type: String, label: String = "") {
+        val note = createNotification(context, id, type, isRinging = false, labelOverride = label)
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(id, note)
     }
@@ -201,7 +206,8 @@ object NotificationRenderer {
         id: Int,
         type: String,
         isRinging: Boolean,
-        timerOverride: TimerItem? = null
+        timerOverride: TimerItem? = null,
+        labelOverride: String? = null
     ): Notification {
         val now = System.currentTimeMillis()
 
@@ -244,6 +250,23 @@ object NotificationRenderer {
                     baseTime = SystemClock.elapsedRealtime()
                 )
             }
+            type == "ALARM" -> {
+                // Backgrounded but technically "ringing" (Interrupted)
+                val alarm = AlarmRepository.getAlarm(id)
+                val label = labelOverride ?: alarm?.label ?: ""
+                val triggerTime = alarm?.lastTriggerTime ?: now
+                val effectiveTrigger = if (triggerTime > 0) triggerTime else now
+                val durationRinging = now - effectiveTrigger
+                
+                NotifConfig(
+                    layoutId = R.layout.notification_call_style,
+                    color = AlarmRepository.NOTIF_COLOR,
+                    title = if (label.isNotBlank()) context.getString(R.string.notif_alarm_silent_ringing, label) else context.getString(R.string.notif_wake_up),
+                    channelId = "STATUS_CHANNEL_ID", // High priority but silent channel
+                    isChronometerCountDown = false,
+                    baseTime = SystemClock.elapsedRealtime() - durationRinging
+                )
+            }
             else -> {
                 NotifConfig(
                     layoutId = R.layout.notification_timer_running, // Use a neutral layout or similar
@@ -260,6 +283,8 @@ object NotificationRenderer {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("ALARM_TYPE", type)
             putExtra("ALARM_ID", id)
+            val alarm = AlarmRepository.getAlarm(id)
+            putExtra("ALARM_LABEL", labelOverride ?: alarm?.label ?: "")
             if (timer != null) putExtra("START_TIME", timer.endTime - timer.totalDuration)
             setData(android.net.Uri.parse("custom://timer/$id"))
         }

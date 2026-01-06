@@ -19,7 +19,7 @@ import androidx.compose.ui.platform.LocalContext
  * - Handling different Android versions for alarm scheduling
  */
 class AlarmScheduler(private val context: Context) {
-    val logger = (context as BaseApplication).getLogger()
+    val logger = (context.applicationContext as BaseApplication).getLogger()
     companion object {
         private const val TAG = "AlarmScheduler"
     }
@@ -83,7 +83,7 @@ class AlarmScheduler(private val context: Context) {
                 return
             }
 
-            scheduleExact(triggerTime, alarm.id, alarm.type.name)
+            scheduleExact(triggerTime, alarm.id, alarm.type.name, alarm.label)
             scheduleNotificationUpdate()
             logger.d(TAG, "Alarm scheduled successfully: ID=${alarm.id}, Time=$triggerTime")
         } catch (e: SecurityException) {
@@ -102,13 +102,14 @@ class AlarmScheduler(private val context: Context) {
      * @param alarmId The ID of the alarm
      * @param typeName The type of alarm (e.g., "ALARM", "TIMER")
      */
-    fun scheduleExact(timeInMillis: Long, alarmId: Int, typeName: String) {
+    fun scheduleExact(timeInMillis: Long, alarmId: Int, typeName: String, label: String = "") {
         try {
             logger.d(TAG, "Scheduling exact alarm: ID=$alarmId, Time=$timeInMillis, Type=$typeName")
 
             val intent = Intent(context, AlarmReceiver::class.java).apply {
                 putExtra("ALARM_ID", alarmId)
                 putExtra("ALARM_TYPE", typeName)
+                putExtra("ALARM_LABEL", label)
             }
 
             val pendingIntent = PendingIntent.getBroadcast(

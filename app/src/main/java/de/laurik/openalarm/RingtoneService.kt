@@ -19,6 +19,8 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import androidx.core.net.toUri
 import de.laurik.openalarm.utils.AppLogger
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 // TODO: fix two alarms ringing at the same time not being correctly stopped
 
@@ -59,11 +61,13 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
     private var targetSliderValue = 1.0f
     private val duckVolume = 0.1f
+    private val intentMutex = Mutex()
+    private val RINGING_NOTIF_ID = 69999
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var fadeJob: Job? = null
     private var ttsJob: Job? = null
-    private var timeoutJob: Job? = null
+    private val timeoutJobs = mutableMapOf<Int, Job>()
 
     private var currentRingingId: Int = -1
     private var currentType: String = "NONE"
@@ -128,22 +132,49 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             return START_NOT_STICKY
         }
 
-        val placeholderNotif = createPlaceholderNotification()
+        // --- OPTIMISTIC FOREGROUND START ---
+        // To avoid "Loading..." notification, we try to build the real notification immediately 
+        // using the data available in the Intent, before the database is fully loaded.
         try {
-            if (Build.VERSION.SDK_INT >= 29) {
-                startForeground(LOADING_NOTIF_ID, placeholderNotif, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-            } else {
-                startForeground(LOADING_NOTIF_ID, placeholderNotif)
+            val action = intent.action
+            if (action == null || action != "STOP_RINGING" && action != "STOP") {
+                val optimisticId = intent.getIntExtra("ALARM_ID", -1)
+                val optimisticType = intent.getStringExtra("ALARM_TYPE") ?: "ALARM"
+                val optimisticLabel = intent.getStringExtra("ALARM_LABEL") ?: ""
+
+                if (optimisticId != -1) {
+                    val notification = NotificationRenderer.buildRingingNotification(
+                        this,
+                        optimisticId,
+                        optimisticType,
+                        optimisticLabel
+                    )
+                    if (Build.VERSION.SDK_INT >= 29) {
+                        startForeground(RINGING_NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+                    } else {
+                        startForeground(RINGING_NOTIF_ID, notification)
+                    }
+                } else {
+                    // Fallback if ID is missing (shouldn't happen for start actions)
+                    val placeholder = createPlaceholderNotification()
+                     if (Build.VERSION.SDK_INT >= 29) {
+                        startForeground(LOADING_NOTIF_ID, placeholder, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+                    } else {
+                        startForeground(LOADING_NOTIF_ID, placeholder)
+                    }
+                }
             }
         } catch (e: Exception) {
-            logger.e(TAG, "Failed to start placeholder foreground", e)
+            logger.e(TAG, "Failed to start optimistic foreground", e)
         }
 
         serviceScope.launch {
             try {
                 logger.d(TAG, "Loading database...")
                 AlarmRepository.ensureLoaded(applicationContext)
-                handleIntent(intent)
+                intentMutex.withLock {
+                    handleIntent(intent)
+                }
             } catch (e: Exception) {
                 logger.e(TAG, "Error in onStartCommand", e)
                 stopSelf()
@@ -206,7 +237,21 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             val targetId = intent?.getIntExtra("TARGET_ID", -1) ?: -1
             logger.d(TAG, "Stop action received for ID: $targetId")
 
-            if (targetId == currentRingingId || targetId == -1) {
+            if (targetId != -1) {
+                // Remove from stack if it's there
+                InternalDataStore.interruptedItems.removeAll { it.id == targetId }
+                // Cancel its specific timeout if it exists
+                timeoutJobs[targetId]?.cancel()
+                timeoutJobs.remove(targetId)
+
+                // Cancel its notification (in case it was silent/background)
+                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                nm.cancel(targetId)
+
+                if (targetId == currentRingingId) {
+                    handleStopCurrentAlarm()
+                }
+            } else if (currentRingingId != -1) {
                 handleStopCurrentAlarm()
             }
         } catch (e: Exception) {
@@ -224,6 +269,9 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         if (currentRingingId != -1) {
             // Remove from memory
             InternalDataStore.interruptedItems.removeAll { it.id == currentRingingId }
+            // Cancel timeout
+            timeoutJobs[currentRingingId]?.cancel()
+            timeoutJobs.remove(currentRingingId)
         }
 
         val alarm = AlarmRepository.getAlarm(currentRingingId)
@@ -336,7 +384,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
                 if (targetId == currentRingingId) {
                     stopForeground(true)
-                    stopAll()
+                    stopMediaOnly()
                     AlarmRepository.setCurrentRingingId(-1)
                     checkStackAndResume()
                 }
@@ -372,9 +420,14 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 return
             }
 
-            val item = InterruptedItem(id = currentRingingId, type = currentType, timestamp = System.currentTimeMillis())
+            val item = InterruptedItem(
+                id = currentRingingId,
+                type = currentType,
+                label = if (currentType == "ALARM") AlarmRepository.getAlarm(currentRingingId)?.label ?: "" else "",
+                timestamp = System.currentTimeMillis()
+            )
             AlarmRepository.addInterruptedItem(this, item)
-            NotificationRenderer.showSilentRinging(this, currentRingingId, currentType)
+            NotificationRenderer.showSilentRinging(this, currentRingingId, currentType, item.label)
             startRinging(newId, newType)
         } catch (e: Exception) {
             logger.e(TAG, "Error handling start new action", e)
@@ -387,8 +440,9 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
      *
      * @param id The ID of the alarm or timer
      * @param type The type of alarm (e.g., "ALARM", "TIMER")
+     * @param labelOverride Optional label to use (bypasses DB lookup)
      */
-    private fun startRinging(id: Int, type: String) {
+    private fun startRinging(id: Int, type: String, labelOverride: String? = null) {
         if (type == "ALARM") {
             val alarmCheck = AlarmRepository.getAlarm(id)
             if (alarmCheck == null) {
@@ -409,11 +463,14 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             currentRingingId = id
             currentType = type
             AlarmRepository.setCurrentRingingId(id)
+            
+            // Safety: Ensure this ID is not in the interrupted stack (prevents ghost "Silent" notifications)
+            InternalDataStore.interruptedItems.removeAll { it.id == id }
 
-            var label = ""
+            var label = labelOverride ?: ""
             val settingsRepo = SettingsRepository.getInstance(applicationContext)
 
-            if (type == "ALARM") {
+            if (type == "ALARM" && label.isBlank()) {
                 val alarm = AlarmRepository.getAlarm(id)
                 if (alarm != null) {
                     label = alarm.label
@@ -422,6 +479,11 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                         lastTriggerTime = System.currentTimeMillis()
                     )
                     AlarmRepository.updateAlarm(this, updated)
+                }
+            } else if (type == "ALARM" && label.isNotBlank()) {
+                // If label was provided (resuming), do NOT reset trigger time
+                AlarmRepository.getAlarm(id)?.let { alarm ->
+                     AlarmRepository.updateAlarm(this, alarm.copy(snoozeUntil = null))
                 }
             }
 
@@ -448,10 +510,10 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             }
 
             val safeTimeoutMs = (timeoutMinutes.toLong() * 60 * 1000).coerceAtLeast(10000L)
-            logger.d(TAG, "Setting timeout for $safeTimeoutMs ms")
+            logger.d(TAG, "Setting timeout for $safeTimeoutMs ms for ID $id")
 
-            timeoutJob?.cancel()
-            timeoutJob = serviceScope.launch {
+            timeoutJobs[id]?.cancel()
+            timeoutJobs[id] = serviceScope.launch {
                 delay(safeTimeoutMs)
                 handleTimeout(id, type)
             }
@@ -471,18 +533,14 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
             try {
                 if (Build.VERSION.SDK_INT >= 29) {
-                    startForeground(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+                    startForeground(RINGING_NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
                 } else {
-                    startForeground(id, notification)
-                }
-                if (id != LOADING_NOTIF_ID) {
-                    val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-                    nm.cancel(LOADING_NOTIF_ID)
+                    startForeground(RINGING_NOTIF_ID, notification)
                 }
             } catch (e: Exception) {
                 logger.e(TAG, "Failed to start foreground", e)
                 if (Build.VERSION.SDK_INT >= 29) {
-                    try { startForeground(id, notification) } catch (e2: Exception) {
+                    try { startForeground(RINGING_NOTIF_ID, notification) } catch (e2: Exception) {
                         logger.e(TAG, "Failed to start fallback foreground", e2)
                     }
                 }
@@ -611,10 +669,8 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             val now = System.currentTimeMillis()
             logger.d(TAG, "TIMEOUT triggered at $now for $id ($type)")
 
-            if (id != currentRingingId) {
-                logger.d(TAG, "Timeout ignored: triggered for $id but current is $currentRingingId")
-                return
-            }
+            // Clean up the job entry
+            timeoutJobs.remove(id)
 
             StatusHub.trigger(StatusEvent.Timeout(id, type))
 
@@ -641,8 +697,16 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                     rescheduleAlarm(id)
                 }
 
-                AlarmRepository.setCurrentRingingId(-1)
-                checkStackAndResume()
+                if (id == currentRingingId) {
+                    AlarmRepository.setCurrentRingingId(-1)
+                    checkStackAndResume()
+                } else {
+                    // If it was backgrounded, just ensure it's removed from stack
+                    InternalDataStore.interruptedItems.removeAll { it.id == id }
+                    val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    nm.cancel(id)
+                    NotificationRenderer.refreshAll(this)
+                }
             }
         } catch (e: Exception) {
             logger.e(TAG, "Error in handleTimeout", e)
@@ -680,11 +744,19 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             val msg = if (isAuto) "Auto-snoozed for $snoozeMinutes min" else "Snoozed for $snoozeMinutes min"
             Toast.makeText(applicationContext, msg, Toast.LENGTH_LONG).show()
 
-            stopAll()
+            stopAll() // This is a bit aggressive, maybe only stop audio if currentRingingId == alarm.id
             stopForeground(true)
-            AlarmRepository.setCurrentRingingId(-1)
+            
+            // Cleanup state
+            InternalDataStore.interruptedItems.removeAll { it.id == alarm.id }
+            timeoutJobs[alarm.id]?.cancel()
+            timeoutJobs.remove(alarm.id)
+
+            if (alarm.id == currentRingingId) {
+                AlarmRepository.setCurrentRingingId(-1)
+                checkStackAndResume()
+            }
             NotificationRenderer.refreshAll(this)
-            checkStackAndResume()
         } catch (e: Exception) {
             logger.e(TAG, "Error in handleSnooze", e)
             // Optionally notify the user or take other action
@@ -698,7 +770,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     private fun startAudioWithFeatures() {
         try {
             logger.d(TAG, "Starting audio...")
-            stopAll()
+            stopMediaOnly()
             val settingsRepo = SettingsRepository.getInstance(applicationContext)
             val defaultUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             var uriToPlay = defaultUri
@@ -894,9 +966,10 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     }
 
     /**
-     * Stops all audio playback, vibration, and cancels all coroutines.
+     * Stops audio, vibration, and TTS, but DOES NOT affect foreground service state.
+     * Used when switching between alarms or preparing to start a new sound.
      */
-    private fun stopAll() {
+    private fun stopMediaOnly() {
         try {
             mediaPlayer?.stop()
             mediaPlayer?.release()
@@ -917,8 +990,21 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         mediaPlayer = null
         fadeJob?.cancel()
         ttsJob?.cancel()
-        timeoutJob?.cancel()
+        timeoutJobs.values.forEach { it.cancel() }
+        timeoutJobs.clear()
         abandonAudioFocus()
+    }
+
+    /**
+     * Stops everything AND cancels foreground notification/state.
+     */
+    private fun stopAll() {
+        stopMediaOnly()
+        try {
+            stopForeground(true)
+        } catch (e: Exception) {
+            logger.e(TAG, "Error stopping foreground", e)
+        }
     }
 
     /**
@@ -940,23 +1026,42 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     /**
      * Checks if there are interrupted alarms to resume.
      */
+    /**
+     * Checks if there are interrupted alarms to resume.
+     */
     private fun checkStackAndResume() {
         try {
             val nextItem = AlarmRepository.popInterruptedItem(this)
             if (nextItem != null) {
-                // Double check we aren't resuming the same ID we just stopped (safety check)
+                // 1. Safety: Prevent infinite loop if we popped the same ID we just were ringing
                 if (nextItem.id == currentRingingId) {
                     logger.w(TAG, "Aborting resume of same ID that was just stopped: ${nextItem.id}")
-                    checkStackAndResume() // skip this one, try next
-                    return
-                }
-
-                if (nextItem.type == "TIMER" && AlarmRepository.getTimer(nextItem.id) == null) {
                     checkStackAndResume()
                     return
                 }
-                logger.d(TAG, "Resuming interrupted item: ID=${nextItem.id}, Type=${nextItem.type}")
-                startRinging(nextItem.id, nextItem.type)
+
+                // 2. Validation: Ensure the alarm/timer still actually exists
+                val exists = if (nextItem.type == "ALARM") {
+                    AlarmRepository.getAlarm(nextItem.id) != null
+                } else {
+                    AlarmRepository.getTimer(nextItem.id) != null
+                }
+
+                if (!exists) {
+                    logger.w(TAG, "Skipping phantom/deleted item from stack: ID=${nextItem.id}")
+                    val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    nm.cancel(nextItem.id)
+                    checkStackAndResume() // Try next
+                    return
+                }
+
+                logger.d(TAG, "Resuming interrupted item: ID=${nextItem.id}, Type=${nextItem.type}, Label=${nextItem.label}")
+                
+                // 3. Cancel silent notification before promoting
+                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                nm.cancel(nextItem.id)
+                
+                startRinging(nextItem.id, nextItem.type, nextItem.label)
             } else {
                 stopSelf()
             }
