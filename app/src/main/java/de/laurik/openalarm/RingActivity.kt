@@ -64,6 +64,7 @@ class RingActivity : ComponentActivity() {
                     is StatusEvent.Stopped -> if (event.id == currentId || event.id == -1) finish()
                     is StatusEvent.Extended -> if (event.id == currentId && currentType != "TIMER") finish()
                     is StatusEvent.Timeout -> if (event.id == currentId) finish()
+                    is StatusEvent.Snoozed -> if (event.id == currentId) finish()
                     else -> {}
                 }
             }

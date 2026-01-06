@@ -182,8 +182,6 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     private fun handleTimeoutTriggered(id: Int, type: String) {
         logger.d(TAG, "TIMEOUT triggered for $id")
         timeoutJobs.remove(id)
-        StatusHub.trigger(StatusEvent.Timeout(id, type))
-
         // A: Active Alarm Timeout
         if (id == currentRingingId) {
             val alarm = AlarmRepository.getAlarm(id)
@@ -194,6 +192,8 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             }
             return
         }
+
+        StatusHub.trigger(StatusEvent.Timeout(id, type))
 
         // B: Background Timeout
         val queuedItem = InternalDataStore.interruptedItems.find { it.id == id }
