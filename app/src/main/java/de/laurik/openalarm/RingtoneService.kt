@@ -182,51 +182,52 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun handleTimeoutTriggered(id: Int, type: String) {
-        logger.d(TAG, "TIMEOUT triggered for $id")
+        logger.d(TAG, "TIMEOUT triggered for $id ($type)")
         timeoutJobs.remove(id)
+
         // A: Active Alarm Timeout
         if (id == currentRingingId) {
-            val alarm = AlarmRepository.getAlarm(id)
-            if (type == "ALARM" && alarm != null && alarm.isSnoozeEnabled) {
-                handleAutoSnooze(alarm)
+            val alarm = if (type == "ALARM") AlarmRepository.getAlarm(id) else null
+
+            if (type == "ALARM" && alarm != null) {
+                if (alarm.isSnoozeEnabled &&
+                    (alarm.maxSnoozes == null || alarm.currentSnoozeCount < (alarm.maxSnoozes ?: Int.MAX_VALUE))) {
+                    // Auto-Snooze the current ringing alarm
+                    handleAutoSnooze(alarm)
+                } else {
+                    // Actually stop the alarm
+                    stopCurrentRinging(isTimeout = true)
+                }
             } else {
+                // For timers or if alarm is null
                 stopCurrentRinging(isTimeout = true)
             }
             return
         }
 
-        StatusHub.trigger(StatusEvent.Timeout(id, type))
-
         // B: Background Timeout
-        val queuedItem = InternalDataStore.interruptedItems.find { it.id == id }
-        if (queuedItem != null) {
-            InternalDataStore.interruptedItems.remove(queuedItem)
+        val queuedItemIndex = InternalDataStore.interruptedItems.indexOfFirst { it.id == id }
+        if (queuedItemIndex != -1) {
+            val queuedItem = InternalDataStore.interruptedItems[queuedItemIndex]
+            InternalDataStore.interruptedItems.removeAt(queuedItemIndex)
+
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.cancel(id)
 
-            val alarm = AlarmRepository.getAlarm(id)
-            if (type == "ALARM" && alarm != null && alarm.isSnoozeEnabled) {
-                // Auto-Snooze
-                val snoozeMins = alarm.snoozeDuration ?: SettingsRepository.getInstance(this).defaultSnooze.value
-                val snoozeTime = System.currentTimeMillis() + (snoozeMins * 60 * 1000)
-                val updated = alarm.copy(snoozeUntil = snoozeTime, currentSnoozeCount = alarm.currentSnoozeCount + 1)
-                AlarmRepository.updateAlarm(this, updated)
-                val group = AlarmRepository.groups.find { it.id == alarm.groupId }
-                AlarmScheduler(this).schedule(updated, group?.offsetMinutes ?: 0)
-                NotificationRenderer.showMissedNotification(this, id, alarm.label, "Auto-Snoozed ($snoozeMins m)")
-            } else {
-                // Missed
-                NotificationRenderer.showMissedNotification(this, id, queuedItem.label, "Timeout")
-                if (type == "ALARM" && alarm != null) {
-                    val now = System.currentTimeMillis()
-                    val group = AlarmRepository.groups.find { it.id == alarm.groupId }
-                    val nextOcc = AlarmUtils.getNextOccurrence(alarm.hour, alarm.minute, alarm.daysOfWeek, group?.offsetMinutes ?: 0, null, null, now + 60_000)
-                    val updated = alarm.copy(skippedUntil = nextOcc + 1000, currentSnoozeCount = 0)
-                    AlarmRepository.updateAlarm(this, updated)
-                    AlarmScheduler(this).schedule(updated, group?.offsetMinutes ?: 0)
+            val alarm = if (type == "ALARM") AlarmRepository.getAlarm(id) else null
+            if (type == "ALARM" && alarm != null) {
+                if (alarm.isSnoozeEnabled &&
+                    (alarm.maxSnoozes == null || alarm.currentSnoozeCount < (alarm.maxSnoozes ?: Int.MAX_VALUE))) {
+                    // Auto-Snooze background alarm
+                    handleAutoSnooze(alarm)
+                } else {
+                    // Missed - just show notification, don't reschedule
+                    NotificationRenderer.showMissedNotification(this, id, queuedItem.label, "Timeout")
                 }
             }
         }
+
+        StatusHub.trigger(StatusEvent.Timeout(id, type))
     }
 
     // --- STOPPING LOGIC ---
@@ -263,25 +264,34 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 val now = System.currentTimeMillis()
                 val group = AlarmRepository.groups.find { it.id == alarm.groupId }
                 val offset = group?.offsetMinutes ?: 0
-                val nextOcc = AlarmUtils.getNextOccurrence(alarm.hour, alarm.minute, alarm.daysOfWeek, offset, null, null, now - 60_000)
-                val skippedTime = if (nextOcc <= now + 6 * 60 * 60 * 1000) {
-                    now + 6 * 60 * 60 * 1000
-                } else {
-                    nextOcc
-                }
-                val finalSkippedTime = max(skippedTime, alarm.skippedUntil)
 
+                // Calculate the next normal occurrence
+                val nextOccurrence = AlarmUtils.getNextOccurrence(
+                    alarm.hour, alarm.minute, alarm.daysOfWeek,
+                    offset, null, null, now - 60_000
+                )
+
+                // Apply the 6-hour safe window
+                val shouldSkip = nextOccurrence <= now + (6 * 60 * 60 * 1000)
+                val finalSkipTime = if (shouldSkip) now + (6 * 60 * 60 * 1000) else 0L
+
+                // Update the alarm with the skip time if needed
                 val updated = alarm.copy(
                     snoozeUntil = null,
                     currentSnoozeCount = 0,
-                    skippedUntil = finalSkippedTime,
+                    temporaryOverrideTime = null,
+                    skippedUntil = if (shouldSkip) finalSkipTime else alarm.skippedUntil,
                     isEnabled = if (alarm.isSingleUse) false else alarm.isEnabled
                 )
                 AlarmRepository.updateAlarm(this, updated)
 
-                if (updated.isEnabled) {
-                    AlarmScheduler(this).schedule(updated, offset)
+                // Only reschedule if the alarm is still enabled and not skipped
+                if (updated.isEnabled && !shouldSkip) {
+                    val scheduler = AlarmScheduler(this)
+                    scheduler.schedule(updated, offset)
                 }
+                // delete alarm if it is self destroying
+                if (alarm.isSelfDestroying) { AlarmRepository.deleteAlarm(this, alarm) }
 
                 if (isTimeout) {
                     NotificationRenderer.showMissedNotification(this, id, alarm.label, "Timeout")
@@ -300,7 +310,20 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(tIntent) else startService(tIntent)
         }
 
-        checkQueueAndResume()
+        // Clear current ringing state
+        currentRingingId = -1
+        currentType = "NONE"
+
+        // Stop foreground service
+        stopForeground(true)
+
+        // Check if there are any interrupted items
+        if (InternalDataStore.interruptedItems.isNotEmpty()) {
+            checkQueueAndResume()
+        } else {
+            // No more alarms to ring, stop the service
+            stopSelf()
+        }
     }
 
     // --- SNOOZE LOGIC ---
@@ -331,20 +354,46 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun handleAutoSnooze(alarm: AlarmItem) {
+        try {
+            logger.d(TAG, "Auto-snoozing alarm: ID=${alarm.id}")
 
-        val snoozeMins = alarm.snoozeDuration ?: SettingsRepository.getInstance(this).defaultSnooze.value
-        val snoozeTime = System.currentTimeMillis() + (snoozeMins * 60 * 1000)
+            val snoozeMins = alarm.snoozeDuration ?: SettingsRepository.getInstance(this).defaultSnooze.value
+            val snoozeTime = System.currentTimeMillis() + (snoozeMins * 60 * 1000)
 
-        val updated = alarm.copy(snoozeUntil = snoozeTime, currentSnoozeCount = alarm.currentSnoozeCount + 1)
-        AlarmRepository.updateAlarm(this, updated)
-        val group = AlarmRepository.groups.find { it.id == alarm.groupId }
-        AlarmScheduler(this).schedule(updated, group?.offsetMinutes ?: 0)
+            // Update the alarm with snooze time
+            val updated = alarm.copy(
+                snoozeUntil = snoozeTime,
+                currentSnoozeCount = alarm.currentSnoozeCount + 1
+            )
+            AlarmRepository.updateAlarm(this, updated)
 
-        NotificationRenderer.showMissedNotification(this, alarm.id, alarm.label, "Auto-Snoozed ($snoozeMins m)")
-        StatusHub.trigger(StatusEvent.Snoozed(alarm.id, "ALARM", snoozeTime))
+            // Schedule ONLY the snooze time, not the next normal occurrence
+            val scheduler = AlarmScheduler(this)
+            scheduler.scheduleExact(snoozeTime, alarm.id, "ALARM", alarm.label)
 
-        stopMedia()
-        checkQueueAndResume()
+            // Show notification
+            NotificationRenderer.showMissedNotification(this, alarm.id, alarm.label, "Auto-Snoozed ($snoozeMins m)")
+
+            // Stop the current alarm
+            stopMedia()
+
+            // Clear current ringing state
+            currentRingingId = -1
+            currentType = "NONE"
+
+            // Stop foreground service
+            stopForeground(true)
+
+            // Check if there are any interrupted items
+            if (InternalDataStore.interruptedItems.isNotEmpty()) {
+                checkQueueAndResume()
+            } else {
+                // No more alarms to ring, stop the service
+                stopSelf()
+            }
+        } catch (e: Exception) {
+            logger.e(TAG, "Error in handleAutoSnooze", e)
+        }
     }
 
     private fun handleAddTimeAction(intent: Intent) {
@@ -369,17 +418,25 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun checkQueueAndResume() {
-        val nextItem = AlarmRepository.popInterruptedItem(this)
+        // Check if there are any interrupted items
+        if (InternalDataStore.interruptedItems.isNotEmpty()) {
+            // Get the next interrupted item
+            val nextItem = InternalDataStore.interruptedItems.removeAt(0)
 
-        if (nextItem != null) {
-            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            nm.cancel(nextItem.id)
-            startRingingSession(nextItem.id, nextItem.type, nextItem.label, nextItem.timestamp)
+            // Make sure this item is still valid (not already ringing)
+            if (nextItem.id != currentRingingId) {
+                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                nm.cancel(nextItem.id)
+
+                // Start the next alarm
+                startRingingSession(nextItem.id, nextItem.type, nextItem.label, nextItem.timestamp)
+            } else {
+                // This item is already ringing, check for more items
+                checkQueueAndResume()
+            }
         } else {
-            currentRingingId = -1
-            stopForeground(true)
+            // No more alarms to ring, stop the service
             stopSelf()
-            NotificationRenderer.refreshAll(this)
         }
     }
 
@@ -414,6 +471,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             }
         }
 
+        // Store the target volume for later use
         targetSliderValue = volume
 
         // Focus
