@@ -42,6 +42,8 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     // State
     private var currentRingingId: Int = -1
     private var currentType: String = "NONE"
+    private var originalSystemVolume: Int? = null
+    private var targetSliderValue: Float = 1.0f
 
     // Coroutines & Jobs
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
@@ -391,6 +393,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         var vibrate = true
         var ttsMode = TtsMode.NONE
         var ttsText = ""
+        var fadeInSeconds = 0
 
         if (type == "ALARM") {
             AlarmRepository.getAlarm(id)?.let {
@@ -398,6 +401,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 volume = it.customVolume ?: 1.0f
                 vibrate = it.vibrationEnabled
                 ttsMode = it.ttsMode
+                fadeInSeconds = it.fadeInSeconds
             }
         } else {
             val s = SettingsRepository.getInstance(this)
@@ -409,6 +413,8 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 ttsText = s.timerTtsText.value.ifBlank { "Timer Done" }
             }
         }
+
+        targetSliderValue = volume
 
         // Focus
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -429,27 +435,61 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 setDataSource(applicationContext, uri)
                 setAudioStreamType(AudioManager.STREAM_ALARM)
                 isLooping = true
-                setVolume(volume, volume)
+
+                // Set the volume directly on the MediaPlayer
+                if (fadeInSeconds > 0) {
+                    setVolume(0.01f, 0.01f)
+                } else {
+                    setVolume(volume, volume)
+                }
+
                 prepare()
                 start()
             }
-        } catch (e: Exception) { logger.e(TAG, "MediaPlayer failed", e) }
+        } catch (e: Exception) {
+            logger.e(TAG, "MediaPlayer failed", e)
+        }
 
         // Vibration
         if (vibrate) {
-            vibrator = if (Build.VERSION.SDK_INT >= 31) {
+            val pattern = longArrayOf(0, 500, 500)
+            vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 (getSystemService(VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
             } else {
                 @Suppress("DEPRECATION") getSystemService(VIBRATOR_SERVICE) as Vibrator
             }
-            val pattern = longArrayOf(0, 500, 500)
-            if (Build.VERSION.SDK_INT >= 26) vibrator?.vibrate(VibrationEffect.createWaveform(pattern, 0))
-            else @Suppress("DEPRECATION") vibrator?.vibrate(pattern, 0)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator?.vibrate(VibrationEffect.createWaveform(pattern, 0))
+            } else {
+                @Suppress("DEPRECATION") vibrator?.vibrate(pattern, 0)
+            }
+            logger.d(TAG, "Vibration started successfully")
         }
 
-        if (ttsMode != TtsMode.NONE) {
-            ttsJob = serviceScope.launch {
-                startTtsLoop(ttsMode, ttsText, volume)
+        // Fade-in effect
+        fadeJob = serviceScope.launch {
+            try {
+                if (fadeInSeconds > 0 && mediaPlayer != null) {
+                    logger.d(TAG, "Starting fade-in for $fadeInSeconds seconds")
+                    val steps = fadeInSeconds * 10
+                    val volumeStep = (targetSliderValue - 0.01f) / steps
+                    var currentVol = 0.01f
+
+                    for (i in 1..steps) {
+                        delay(100)
+                        if (mediaPlayer == null) break
+                        currentVol += volumeStep
+                        val safeVol = currentVol.coerceAtMost(targetSliderValue)
+                        mediaPlayer?.setVolume(safeVol, safeVol)
+                    }
+                    mediaPlayer?.setVolume(targetSliderValue, targetSliderValue)
+                }
+            } catch (e: Exception) {
+                logger.e(TAG, "Fade-in failed", e)
+            }
+
+            if (ttsMode != TtsMode.NONE) {
+                startTtsLoop(ttsMode, ttsText, targetSliderValue)
             }
         }
     }
@@ -492,6 +532,15 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         mediaPlayer = null
         try { vibrator?.cancel() } catch (e: Exception) {}
         try { tts?.stop() } catch(e: Exception) {}
+
+        // Restore system volume
+        try {
+            originalSystemVolume?.let {
+                logger.d(TAG, "Restoring system volume to $it")
+                audioManager?.setStreamVolume(AudioManager.STREAM_ALARM, it, 0)
+            }
+        } catch (e: Exception) { logger.e(TAG, "Failed to restore system volume", e) }
+        originalSystemVolume = null
 
         fadeJob?.cancel()
         ttsJob?.cancel()
