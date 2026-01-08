@@ -38,7 +38,7 @@ class SettingsRepository(context: Context) {
     private val _timerVolume = MutableStateFlow(prefs.getFloat("timer_volume", 1.0f))
     val timerVolume: StateFlow<Float> = _timerVolume.asStateFlow()
 
-    private val _timerVibration = MutableStateFlow(prefs.getBoolean("timer_volume", true))
+    private val _timerVibration = MutableStateFlow(prefs.getBoolean("timer_vibration", true))
     val timerVibration: StateFlow<Boolean> = _timerVibration.asStateFlow()
 
     private val _timerTtsEnabled = MutableStateFlow(prefs.getBoolean("timer_tts_enabled", false))
