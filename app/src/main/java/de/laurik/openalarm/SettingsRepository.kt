@@ -100,6 +100,37 @@ class SettingsRepository(context: Context) {
     private val _notifyBeforeMinutes = MutableStateFlow(prefs.getInt("notify_before_minutes", 120)) // Default 2 hours
     val notifyBeforeMinutes: StateFlow<Int> = _notifyBeforeMinutes.asStateFlow()
 
+    fun refreshAll() {
+        _themeMode.value = getVideoThemeMode()
+        _isPureBlack.value = prefs.getBoolean("is_pure_black", false)
+        _quickAdjustPresets.value = getIntList("quick_adjust_presets", listOf(10, 30, 60))
+        _timerPresets.value = getIntList("timer_presets", listOf(1, 5, 10))
+        _defaultSnooze.value = prefs.getInt("def_snooze", 10)
+        _defaultAutoStop.value = prefs.getInt("def_auto_stop", 10)
+        _timerRingtone.value = prefs.getString("timer_ringtone", null)
+        _timerVolume.value = prefs.getFloat("timer_volume", 1.0f)
+        _timerVibration.value = prefs.getBoolean("timer_vibration", true)
+        _timerTtsEnabled.value = prefs.getBoolean("timer_tts_enabled", false)
+        _timerTtsText.value = prefs.getString("timer_tts_text", "") ?: ""
+        _defaultTimerAutoStop.value = prefs.getInt("def_timer_auto_stop", 5)
+        _defaultRingingMode.value = getRingingMode("def_ringing_mode", RingingScreenMode.CLEAN)
+        _defaultSnoozePresets.value = getIntList("def_snooze_presets", listOf(5, 10, 15))
+        _timerAdjustPresets.value = getIntList("timer_adjust_presets", listOf(60, 300))
+        _defVibrationEnabled.value = prefs.getBoolean("def_alarm_vibration", true)
+        _defRingtoneUri.value = prefs.getString("def_alarm_ringtone", null)
+        _defCustomVolume.value = prefs.getFloat("def_alarm_volume", -1f).takeIf { it >= 0 }
+        _defFadeInSeconds.value = prefs.getInt("def_alarm_fade", 0)
+        _defTtsMode.value = getTtsMode("def_alarm_tts", TtsMode.NONE)
+        _defIsSingleUse.value = prefs.getBoolean("def_alarm_single_use", false)
+        _defIsSelfDestroying.value = prefs.getBoolean("def_alarm_self_destroy", false)
+        _defDaysOfWeek.value = getIntList("def_alarm_days", listOf(1, 2, 3, 4, 5, 6, 7))
+        _defIsSnoozeEnabled.value = prefs.getBoolean("def_alarm_snooze_enabled", true)
+        _defMaxSnoozes.value = prefs.getInt("def_alarm_max_snoozes", -1).takeIf { it >= 0 }
+        _defDirectSnooze.value = prefs.getBoolean("def_alarm_direct_snooze", false)
+        _notifyBeforeEnabled.value = prefs.getBoolean("notify_before_enabled", true)
+        _notifyBeforeMinutes.value = prefs.getInt("notify_before_minutes", 120)
+    }
+
     private fun getRingingMode(key: String, default: RingingScreenMode): RingingScreenMode {
         val name = prefs.getString(key, null) ?: return default
         return try { RingingScreenMode.valueOf(name) } catch (e: Exception) { default }

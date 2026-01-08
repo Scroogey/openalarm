@@ -32,8 +32,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import de.laurik.openalarm.LogViewerScreen
 
 @Composable
@@ -57,6 +61,8 @@ fun SettingsScreen(
     // Dialog States
     var showNotifyBeforeDialog by remember { mutableStateOf(false) }
     var currentSubScreen by remember { mutableStateOf<String?>(null) } // null, "DEFAULT_ALARM"
+    var showImportConfirm by remember { mutableStateOf(false) }
+    var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
     
     // Back Handler for sub-screens
     androidx.activity.compose.BackHandler(enabled = currentSubScreen != null) {
@@ -396,6 +402,55 @@ fun SettingsScreen(
                     modifier = Modifier.clickable { currentSubScreen = "LOG_VIEWER" }
                 )
 
+                HorizontalDivider(Modifier.padding(vertical = 16.dp))
+
+                // --- BACKUP ---
+                Text(
+                    "Backup",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.height(8.dp))
+
+                val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+                    uri?.let {
+                        val outputStream = context.contentResolver.openOutputStream(it)
+                        if (outputStream != null) {
+                            viewModel.viewModelScope.launch {
+                                val success = viewModel.exportBackup(outputStream)
+                                if (success) {
+                                    android.widget.Toast.makeText(context, "Backup exported successfully", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    android.widget.Toast.makeText(context, "Export failed", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    }
+                }
+
+                val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+                    uri?.let {
+                        pendingImportUri = it
+                        showImportConfirm = true
+                    }
+                }
+
+                ListItem(
+                    headlineContent = { Text("Export Backup") },
+                    supportingContent = { Text("Save all settings and alarms to a file") },
+                    modifier = Modifier.clickable {
+                        exportLauncher.launch("openalarm_backup_${System.currentTimeMillis()}.json")
+                    }
+                )
+
+                ListItem(
+                    headlineContent = { Text("Import Backup") },
+                    supportingContent = { Text("Restore settings and alarms from a file") },
+                    modifier = Modifier.clickable {
+                        importLauncher.launch("application/json")
+                    }
+                )
+
                 // --- DIALOGS ---
                 if (currentSubScreen == "LOG_VIEWER") {
                     Dialog(
@@ -451,6 +506,32 @@ fun SettingsScreen(
                         onConfirm = { 
                             viewModel.setTimerAdjustPresets(it.map { it * 60 })
                             showAdjustPresetsEdit = false 
+                        }
+                    )
+                }
+                
+                if (showImportConfirm) {
+                    ImportConfirmationDialog(
+                        onDismiss = { 
+                            showImportConfirm = false
+                            pendingImportUri = null
+                        },
+                        onConfirm = {
+                            showImportConfirm = false
+                            pendingImportUri?.let { uri ->
+                                val inputStream = context.contentResolver.openInputStream(uri)
+                                if (inputStream != null) {
+                                    viewModel.viewModelScope.launch {
+                                        val success = viewModel.importBackup(inputStream)
+                                        if (success) {
+                                            android.widget.Toast.makeText(context, "Backup imported successfully", android.widget.Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            android.widget.Toast.makeText(context, "Import failed", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                        pendingImportUri = null
+                                    }
+                                }
+                            }
                         }
                     )
                 }
@@ -537,6 +618,59 @@ fun PresetEditDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        }
+    )
+}
+
+@Composable
+fun ImportConfirmationDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    var acknowledged by remember { mutableStateOf(false) }
+    var timeLeft by remember { mutableStateOf(3) }
+    val isTimerRunning = timeLeft > 0
+
+    LaunchedEffect(Unit) {
+        while (timeLeft > 0) {
+            delay(1000)
+            timeLeft--
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Careful!") },
+        text = {
+            Column {
+                Text("Importing a backup will PERMANENTLY delete all your current alarms and settings. This action cannot be undone.")
+                Spacer(Modifier.height(16.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { acknowledged = !acknowledged }
+                ) {
+                    Checkbox(checked = acknowledged, onCheckedChange = { acknowledged = it })
+                    Text("I understand that my current data will be lost.")
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = acknowledged && !isTimerRunning,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            ) {
+                if (isTimerRunning) {
+                    Text("Wait (${timeLeft}s)")
+                } else {
+                    Text("Delete and Import")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
         }
     )
 }

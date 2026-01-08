@@ -8,14 +8,19 @@ import androidx.room.PrimaryKey
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.serialization.Serializable
 import java.util.UUID
 
+@Serializable
 enum class TtsMode { NONE, ONCE, EVERY_MINUTE }
+@Serializable
 enum class AlarmType { SOFT, REGULAR, CRITICAL }
+@Serializable
 enum class RingingScreenMode { DEFAULT, EASY, CLEAN }
 
 // --- ENTITIES (Database Tables) ---
 
+@Serializable
 @Entity(tableName = "alarm_groups")
 data class AlarmGroupEntity(
     @PrimaryKey
@@ -26,6 +31,7 @@ data class AlarmGroupEntity(
     val colorArgb: Int = 0xFFFFFFFF.toInt()
 )
 
+@Serializable
 @Entity(
     tableName = "alarms",
     foreignKeys = [

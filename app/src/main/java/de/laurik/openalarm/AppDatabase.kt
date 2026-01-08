@@ -85,6 +85,18 @@ interface AlarmDao {
     @Delete
     suspend fun deleteInterrupted(item: InterruptedItem)
 
+    @Query("DELETE FROM alarms")
+    suspend fun clearAllAlarms()
+
+    @Query("DELETE FROM alarm_groups")
+    suspend fun clearAllGroups()
+
+    @Query("DELETE FROM timers")
+    suspend fun clearAllTimers()
+
+    @Query("DELETE FROM interrupted_items")
+    suspend fun clearAllInterrupted()
+
     // --- ID GENERATION ---
     @Query("SELECT MAX(id) FROM alarms")
     suspend fun getMaxAlarmId(): Int?

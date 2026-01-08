@@ -101,6 +101,11 @@ object AlarmRepository {
         isLoaded = true
     }
 
+    suspend fun forceReload(context: Context) {
+        isLoaded = false
+        ensureLoaded(context)
+    }
+
     // --- ALARMS ---
     fun getAlarm(id: Int): AlarmItem? {
         return InternalDataStore.groups.flatMap { it.alarms }.find { it.id == id }

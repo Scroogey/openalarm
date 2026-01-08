@@ -142,23 +142,21 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun createDefaultAlarm(hour: Int, minute: Int): AlarmItem {
         return AlarmItem(
-            id = 0,
-            hour = hour,
-            minute = minute,
-            groupId = "default",
-            vibrationEnabled = defVibrationEnabled.value,
-            ringtoneUri = defRingtoneUri.value,
-            customVolume = defCustomVolume.value,
-            fadeInSeconds = defFadeInSeconds.value,
-            ttsMode = defTtsMode.value,
-            isSingleUse = defIsSingleUse.value,
-            isSelfDestroying = defIsSelfDestroying.value,
-            daysOfWeek = defDaysOfWeek.value,
-            isSnoozeEnabled = defIsSnoozeEnabled.value,
-            directSnooze = defDirectSnooze.value,
-            maxSnoozes = defMaxSnoozes.value,
-            snoozePresets = null, // New alarms use null to inherit global defaults unless set specifically
-            ringingScreenMode = defaultRingingMode.value
+            id = 0, hour = hour, minute = minute, groupId = "default",
+            vibrationEnabled = defVibrationEnabled.value, ringtoneUri = defRingtoneUri.value,
+            customVolume = defCustomVolume.value, fadeInSeconds = defFadeInSeconds.value,
+            ttsMode = defTtsMode.value, isSingleUse = defIsSingleUse.value,
+            isSelfDestroying = defIsSelfDestroying.value, daysOfWeek = defDaysOfWeek.value,
+            isSnoozeEnabled = defIsSnoozeEnabled.value, directSnooze = defDirectSnooze.value,
+            maxSnoozes = defMaxSnoozes.value, snoozePresets = null, ringingScreenMode = defaultRingingMode.value
         )
+    }
+
+    suspend fun exportBackup(outputStream: java.io.OutputStream): Boolean {
+        return BackupManager.exportData(getApplication(), outputStream)
+    }
+
+    suspend fun importBackup(inputStream: java.io.InputStream): Boolean {
+        return BackupManager.importData(getApplication(), inputStream)
     }
 }
