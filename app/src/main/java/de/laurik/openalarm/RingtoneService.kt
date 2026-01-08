@@ -16,6 +16,7 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.max
+import kotlin.math.pow
 
 class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
@@ -452,22 +453,41 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         var ttsText = ""
         var fadeInSeconds = 0
 
+        var applyMaxSystemVolume = false
         if (type == "ALARM") {
             AlarmRepository.getAlarm(id)?.let {
                 if (it.ringtoneUri != null) uri = android.net.Uri.parse(it.ringtoneUri)
                 volume = it.customVolume ?: 1.0f
+                applyMaxSystemVolume = it.customVolume != null
                 vibrate = it.vibrationEnabled
                 ttsMode = it.ttsMode
                 fadeInSeconds = it.fadeInSeconds
+                logger.d(TAG, "Setting custom volume: $volume (boost: $applyMaxSystemVolume) for alarm ID: $id")
             }
         } else {
             val s = SettingsRepository.getInstance(this)
             s.timerRingtone.value?.let { uri = it.toUri() }
             volume = s.timerVolume.value
+            applyMaxSystemVolume = true // Timers always use the volume slider setting
             vibrate = s.timerVibration.value
             if (s.timerTtsEnabled.value) {
                 ttsMode = TtsMode.ONCE
                 ttsText = s.timerTtsText.value.ifBlank { "Timer Done" }
+            }
+        }
+
+        // Apply system volume boost if needed
+        if (applyMaxSystemVolume) {
+            try {
+                if (originalSystemVolume == null) {
+                    originalSystemVolume = audioManager?.getStreamVolume(AudioManager.STREAM_ALARM)
+                    logger.d(TAG, "Captured original system volume: $originalSystemVolume")
+                }
+                val maxVol = audioManager?.getStreamMaxVolume(AudioManager.STREAM_ALARM) ?: 7
+                logger.d(TAG, "Boosting system alarm volume to max ($maxVol)")
+                audioManager?.setStreamVolume(AudioManager.STREAM_ALARM, maxVol, 0)
+            } catch (e: Exception) {
+                logger.e(TAG, "Failed to adjust system volume", e)
             }
         }
 
@@ -597,8 +617,11 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 logger.d(TAG, "Restoring system volume to $it")
                 audioManager?.setStreamVolume(AudioManager.STREAM_ALARM, it, 0)
             }
-        } catch (e: Exception) { logger.e(TAG, "Failed to restore system volume", e) }
-        originalSystemVolume = null
+        } catch (e: Exception) { 
+            logger.e(TAG, "Failed to restore system volume", e) 
+        } finally {
+            originalSystemVolume = null
+        }
 
         fadeJob?.cancel()
         ttsJob?.cancel()
