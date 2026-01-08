@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
+import android.util.Log
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import java.util.Calendar
@@ -47,6 +48,20 @@ object NotificationRenderer {
     }
 
     fun buildRingingNotification(context: Context, id: Int, type: String, label: String = "", triggerTime: Long): Notification {
+        // Validate that the alarm/timer still exists
+        val itemExists = if (type == "TIMER") {
+            AlarmRepository.getTimer(id) != null
+        } else {
+            AlarmRepository.getAlarm(id) != null
+        }
+
+        if (!itemExists) {
+            Log.w("NotificationRenderer", "Not building notification for non-existent $type with ID=$id")
+            return NotificationCompat.Builder(context, "ALARM_CHANNEL_ID")
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setAutoCancel(true).build()
+        }
+
         val channelId = "ALARM_CHANNEL_ID"
         val now = System.currentTimeMillis()
         val elapsedNow = SystemClock.elapsedRealtime()

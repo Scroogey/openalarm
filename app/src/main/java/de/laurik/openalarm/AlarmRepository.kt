@@ -1,6 +1,11 @@
 package de.laurik.openalarm
 
+import android.app.AlarmManager
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import kotlinx.coroutines.CoroutineScope
@@ -140,7 +145,30 @@ object AlarmRepository {
 
     fun deleteAlarm(context: Context, alarm: AlarmItem) {
         InternalDataStore.groups.forEach { it.alarms.remove(alarm) }
-        scope.launch { AppDatabase.getDatabase(context).alarmDao().deleteAlarm(alarm) }
+        InternalDataStore.interruptedItems.removeAll { it.id == alarm.id && it.type == "ALARM" }
+        // Cancel any pending notifications
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(alarm.id)
+        // Cancel any pending intents
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, AlarmReceiver::class.java).apply {
+            putExtra("ALARM_ID", alarm.id)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            alarm.id,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        alarmManager.cancel(pendingIntent)
+
+        scope.launch {
+            try {
+                AppDatabase.getDatabase(context).alarmDao().deleteAlarm(alarm)
+            } catch (e: Exception) {
+                Log.e("AlarmRepository", "Error deleting alarm from DB", e)
+            }
+        }
     }
 
     fun getNextAlarmId(context: Context): Int {
@@ -222,24 +250,48 @@ object AlarmRepository {
     fun addInterruptedItem(context: Context, item: InterruptedItem) {
         // Enforce uniqueness: Remove existing entry for this ID to prevent duplicates
         InternalDataStore.interruptedItems.removeAll { it.id == item.id }
-        InternalDataStore.interruptedItems.add(item)
-        scope.launch { 
-            with(AppDatabase.getDatabase(context).alarmDao()) {
-                // Remove old DB entry to be safe if strictly insert
-                 deleteInterrupted(item) 
-                 insertInterrupted(item)
+        val itemExists = if (item.type == "TIMER") {
+            getTimer(item.id) != null
+        } else {
+            getAlarm(item.id) != null
+        }
+
+        if (itemExists) {
+            InternalDataStore.interruptedItems.add(item)
+            scope.launch {
+                with(AppDatabase.getDatabase(context).alarmDao()) {
+                    deleteInterrupted(item) // Remove old entry if exists
+                    insertInterrupted(item)
+                }
             }
         }
     }
 
     fun popInterruptedItem(context: Context): InterruptedItem? {
-        if (InternalDataStore.interruptedItems.isNotEmpty()) {
-            val item = InternalDataStore.interruptedItems.removeAt(InternalDataStore.interruptedItems.lastIndex)
-            scope.launch { AppDatabase.getDatabase(context).alarmDao().deleteInterrupted(item) }
-            return item
+        if (InternalDataStore.interruptedItems.isEmpty()) {
+            return null
         }
-        return null
-    }
 
+        // Get the oldest item (FIFO)
+        val item = InternalDataStore.interruptedItems.removeAt(0)
+
+        // Remove from database
+        scope.launch {
+            try {
+                AppDatabase.getDatabase(context).alarmDao().deleteInterrupted(item)
+            } catch (e: Exception) {
+                Log.e("AlarmRepository", "Error deleting interrupted item from DB", e)
+            }
+        }
+
+        // Verify the item still exists before returning it
+        val itemExists = if (item.type == "TIMER") {
+            getTimer(item.id) != null
+        } else {
+            getAlarm(item.id) != null
+        }
+
+        return if (itemExists) item else null
+    }
     fun setCurrentRingingId(id: Int) { InternalDataStore.currentRingingId = id }
 }

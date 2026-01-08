@@ -1,6 +1,8 @@
 package de.laurik.openalarm
 
+import android.app.AlarmManager
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -111,6 +113,18 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         val triggerTime = intent.getLongExtra("TRIGGER_TIME", System.currentTimeMillis())
 
         if (newId == -1) return
+
+        // Validation: Check if alarm still exists
+        val alarmExists = if (newType == "ALARM") {
+            AlarmRepository.getAlarm(newId) != null
+        } else {
+            AlarmRepository.getTimer(newId) != null
+        }
+
+        if (!alarmExists) {
+            logger.w(TAG, "Ignoring start request for non-existent $newType with ID=$newId")
+            return
+        }
 
         // Deduplication
         if (currentRingingId == newId) return
@@ -243,6 +257,20 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             timeoutJobs.remove(targetId)
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.cancel(targetId)
+
+            // Cancel any pending intents for this ID
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val intent = Intent(this, AlarmReceiver::class.java).apply {
+                putExtra("ALARM_ID", targetId)
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                this,
+                targetId,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(pendingIntent)
+
             return
         }
 
@@ -419,24 +447,47 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun checkQueueAndResume() {
-        // Check if there are any interrupted items
-        if (InternalDataStore.interruptedItems.isNotEmpty()) {
-            // Get the next interrupted item
-            val nextItem = InternalDataStore.interruptedItems.removeAt(0)
-
-            // Make sure this item is still valid (not already ringing)
-            if (nextItem.id != currentRingingId) {
-                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                nm.cancel(nextItem.id)
-
-                // Start the next alarm
-                startRingingSession(nextItem.id, nextItem.type, nextItem.label, nextItem.timestamp)
-            } else {
-                // This item is already ringing, check for more items
-                checkQueueAndResume()
+        try {
+            // Check if we have any interrupted items
+            if (InternalDataStore.interruptedItems.isEmpty()) {
+                logger.d(TAG, "No interrupted items, stopping service")
+                stopSelf()
+                return
             }
-        } else {
-            // No more alarms to ring, stop the service
+
+            // Use popInterruptedItem to get and remove the next item
+            val nextItem = AlarmRepository.popInterruptedItem(this)
+
+            if (nextItem != null) {
+                // Check if the item still exists (timer/alarm)
+                val itemExists = if (nextItem.type == "TIMER") {
+                    AlarmRepository.getTimer(nextItem.id) != null
+                } else {
+                    AlarmRepository.getAlarm(nextItem.id) != null
+                }
+
+                if (itemExists) {
+                    logger.d(TAG, "Resuming interrupted item: ID=${nextItem.id}, Type=${nextItem.type}")
+
+                    // Check if this item is already ringing
+                    if (nextItem.id == currentRingingId) {
+                        logger.w(TAG, "Trying to resume item that's already ringing: ID=${nextItem.id}")
+                        checkQueueAndResume()
+                        return
+                    }
+
+                    startRingingSession(nextItem.id, nextItem.type, nextItem.label, nextItem.timestamp)
+                } else {
+                    logger.d(TAG, "Interrupted item no longer exists: ID=${nextItem.id}, Type=${nextItem.type}")
+                    // Item doesn't exist anymore, check for more items
+                    checkQueueAndResume()
+                }
+            } else {
+                logger.d(TAG, "No more interrupted items, stopping service")
+                stopSelf()
+            }
+        } catch (e: Exception) {
+            logger.e(TAG, "Error in checkStackAndResume", e)
             stopSelf()
         }
     }

@@ -216,6 +216,18 @@ class AlarmReceiver : BroadcastReceiver() {
             else -> type
         }
 
+        // validate if alarm exists
+        val itemExists = if (type == "TIMER") {
+            AlarmRepository.getTimer(id) != null
+        } else {
+            AlarmRepository.getAlarm(id) != null
+        }
+
+        if (!itemExists) {
+            logger.w(TAG, "Ignoring start request for non-existent $type with ID=$id")
+            return
+        }
+
         logger.d(TAG, "Starting ringing for ID: $id, Type: $resolvedType")
 
         val label = intent.getStringExtra("ALARM_LABEL") ?: ""
