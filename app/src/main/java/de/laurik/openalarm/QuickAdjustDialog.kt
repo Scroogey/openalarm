@@ -82,9 +82,7 @@ fun QuickAdjustDialog(
                 
                 Spacer(Modifier.height(16.dp))
 
-                // TARGET TIME DISPLAY (Always visible & stable)
-                val effectiveDelta = if (isCustomMode) (if (isDelay) inputMinutes else -inputMinutes) else 0
-                val targetMillis = currentNextTime + (effectiveDelta * 60 * 1000L)
+                // TARGET TIME DISPLAY
                 val targetDisplay = remember(currentNextTime) {
                     if (currentNextTime <= 0) {
                         "00:00" // Fallback if no time provided

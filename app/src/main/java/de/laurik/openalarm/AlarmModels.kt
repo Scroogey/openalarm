@@ -71,7 +71,7 @@ data class AlarmItem(
     var label: String = "",
 
     // We will use a TypeConverter for this List
-    var daysOfWeek: List<Int> = listOf(1, 2, 3, 4, 5),
+    var daysOfWeek: List<Int> = listOf(1, 2, 3, 4, 5, 6, 7),
     var skippedUntil: Long = 0L,
 
     // Style

@@ -17,8 +17,6 @@ import kotlinx.coroutines.*
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlin.math.max
-import kotlin.math.pow
 
 class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
@@ -151,7 +149,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
         // Notification & UI
         val notification = NotificationRenderer.buildRingingNotification(this, id, type, label, triggerTime)
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(RINGING_NOTIF_ID, notification)
 
         // Force stop Timer Service to remove duplicate "Running" notification
@@ -226,7 +224,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             val queuedItem = InternalDataStore.interruptedItems[queuedItemIndex]
             InternalDataStore.interruptedItems.removeAt(queuedItemIndex)
 
-            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             nm.cancel(id)
 
             val alarm = if (type == "ALARM") AlarmRepository.getAlarm(id) else null
@@ -255,11 +253,11 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             InternalDataStore.interruptedItems.removeAll { it.id == targetId }
             timeoutJobs[targetId]?.cancel()
             timeoutJobs.remove(targetId)
-            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             nm.cancel(targetId)
 
             // Cancel any pending intents for this ID
-            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
             val intent = Intent(this, AlarmReceiver::class.java).apply {
                 putExtra("ALARM_ID", targetId)
             }

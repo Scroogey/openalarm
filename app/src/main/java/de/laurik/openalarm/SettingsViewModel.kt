@@ -109,7 +109,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setDefSelfDestroy(e: Boolean) = repository.setDefSelfDestroy(e)
 
     val defDaysOfWeek = repository.defDaysOfWeek
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf(1, 2, 3, 4, 5))
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf(1, 2, 3, 4, 5, 6, 7))
     fun setDefDaysOfWeek(days: List<Int>) = repository.setDefDaysOfWeek(days)
 
     val defIsSnoozeEnabled = repository.defIsSnoozeEnabled

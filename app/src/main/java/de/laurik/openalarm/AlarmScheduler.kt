@@ -5,9 +5,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.util.Log
-import de.laurik.openalarm.utils.AppLogger
-import androidx.compose.ui.platform.LocalContext
 
 /**
  * Manages scheduling, cancellation, and updates for alarms and timers.
@@ -23,7 +20,6 @@ class AlarmScheduler(private val context: Context) {
     companion object {
         private const val TAG = "AlarmScheduler"
         const val MAX_ADJUSTMENT_MINUTES = 360 // 6 hours
-        const val MAX_ADJUSTMENT_MS = MAX_ADJUSTMENT_MINUTES * 60 * 1000L
     }
     private val alarmManager = context.getSystemService(AlarmManager::class.java)
 

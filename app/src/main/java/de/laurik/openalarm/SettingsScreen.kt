@@ -38,14 +38,12 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import de.laurik.openalarm.LogViewerScreen
 
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onClose: () -> Unit
 ) {
-    val context = LocalContext.current
     val scrollState = rememberScrollState()
 
     // State Collection

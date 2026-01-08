@@ -6,7 +6,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.util.Log
 import de.laurik.openalarm.utils.AppLogger
 import kotlinx.coroutines.launch
 
