@@ -22,16 +22,19 @@ class AlarmScheduler(private val context: Context) {
     val logger = (context.applicationContext as BaseApplication).getLogger()
     companion object {
         private const val TAG = "AlarmScheduler"
+        const val MAX_ADJUSTMENT_MINUTES = 360 // 6 hours
+        const val MAX_ADJUSTMENT_MS = MAX_ADJUSTMENT_MINUTES * 60 * 1000L
     }
     private val alarmManager = context.getSystemService(AlarmManager::class.java)
 
     /**
-     * Schedules an alarm to ring at the calculated next occurrence.
-     *
-     * @param alarm The alarm item to schedule
-     * @param groupOffset The offset in minutes for the alarm group
-     */
-    fun schedule(alarm: AlarmItem, groupOffset: Int) {
+    * Schedules an alarm to ring at the calculated next occurrence.
+    *
+    * @param alarm The alarm item to schedule
+    * @param groupOffset The offset in minutes for the alarm group
+    * @param adjustmentMinutes Optional adjustment in minutes to apply to the schedule
+    **/
+    fun schedule(alarm: AlarmItem, groupOffset: Int, adjustmentMinutes: Int = 0) {
         try {
             logger.d(TAG, "Scheduling alarm: ID=${alarm.id}, Enabled=${alarm.isEnabled}")
 
@@ -40,27 +43,20 @@ class AlarmScheduler(private val context: Context) {
                 return
             }
 
+            // Clamp the adjustment to the maximum allowed value
+            val clampedAdjustment = clampAdjustment(adjustmentMinutes)
+            if (clampedAdjustment != adjustmentMinutes) {
+                logger.w(TAG, "Adjustment of $adjustmentMinutes minutes clamped to $clampedAdjustment minutes")
+            }
+
             val now = System.currentTimeMillis()
 
-            /**
-             * --- PREVENT RACE CONDITION ---
-             * A 60-second grace period to handle race conditions.
-             * If an alarm is set for 12:00:00 and the code runs at 12:00:30,
-             * we still want to schedule it for 12:00:00 (today) rather than
-             * incorrectly scheduling it for tomorrow.
-             *
-             * TODO: currently if alarm is created for current minute, it is ringing shortly after
-             *
-             */
-            val gracePeriodBuffer = 60_000L
-
-            // Use skippedUntil if it's in the future, otherwise use (now - buffer)
-            // This ensures we don't skip "today" just because we are a few seconds late.
+            // Calculate the base time for scheduling
             val baseTime = if (alarm.snoozeUntil != null) {
                 // Snoozes are absolute, use them directly
                 0L
             } else {
-                maxOf(now - gracePeriodBuffer, alarm.skippedUntil)
+                maxOf(now - 60_000, alarm.skippedUntil) // 60-second grace period
             }
 
             // Calculate next time
@@ -74,24 +70,29 @@ class AlarmScheduler(private val context: Context) {
                 minTimestamp = baseTime
             )
 
-            logger.d(TAG, "Calculated trigger time: $triggerTime for alarm ID=${alarm.id}")
+            // Apply adjustment if needed
+            val finalTriggerTime = if (clampedAdjustment != 0) {
+                triggerTime + (clampedAdjustment * 60 * 1000L)
+            } else {
+                triggerTime
+            }
 
-            // Safety: Only return if the calculated time is largely in the past (older than buffer)
-            // If it's 5 seconds in the past, we still want to schedule it so it fires immediately!
-            if (triggerTime <= (now - gracePeriodBuffer)) {
+            logger.d(TAG, "Calculated trigger time: $finalTriggerTime for alarm ID=${alarm.id} " +
+                    "(base: $triggerTime, adjustment: ${clampedAdjustment}m)")
+
+            // Safety: Only return if the calculated time is largely in the past
+            if (finalTriggerTime <= (now - 60_000)) {
                 logger.w(TAG, "Trigger time is in the past, not scheduling alarm ID=${alarm.id}")
                 return
             }
 
-            scheduleExact(triggerTime, alarm.id, alarm.type.name, alarm.label)
+            scheduleExact(finalTriggerTime, alarm.id, alarm.type.name, alarm.label)
             scheduleNotificationUpdate()
-            logger.d(TAG, "Alarm scheduled successfully: ID=${alarm.id}, Time=$triggerTime")
+            logger.d(TAG, "Alarm scheduled successfully: ID=${alarm.id}, Time=$finalTriggerTime")
         } catch (e: SecurityException) {
             logger.e(TAG, "Permission denied to schedule alarm: ID=${alarm.id}", e)
-            // Optionally notify the user about permission issues
         } catch (e: Exception) {
             logger.e(TAG, "Failed to schedule alarm: ID=${alarm.id}", e)
-            // Optionally notify the user about the failure
         }
     }
 
@@ -226,5 +227,14 @@ class AlarmScheduler(private val context: Context) {
             logger.e(TAG, "Failed to cancel alarm: ID=${alarm.id}", e)
             // Optionally notify the user or take other action
         }
+    }
+
+    /**
+     * Clamps the adjustment to the maximum allowed value
+     * @param minutes The requested adjustment in minutes
+     * @return The clamped adjustment in minutes
+     */
+    fun clampAdjustment(minutes: Int): Int {
+        return minutes.coerceIn(-MAX_ADJUSTMENT_MINUTES, MAX_ADJUSTMENT_MINUTES)
     }
 }

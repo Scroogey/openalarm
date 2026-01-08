@@ -85,9 +85,15 @@ fun QuickAdjustDialog(
                 // TARGET TIME DISPLAY (Always visible & stable)
                 val effectiveDelta = if (isCustomMode) (if (isDelay) inputMinutes else -inputMinutes) else 0
                 val targetMillis = currentNextTime + (effectiveDelta * 60 * 1000L)
-                val targetDisplay = Instant.ofEpochMilli(targetMillis)
-                    .atZone(ZoneId.systemDefault())
-                    .format(DateTimeFormatter.ofPattern("HH:mm"))
+                val targetDisplay = remember(currentNextTime) {
+                    if (currentNextTime <= 0) {
+                        "00:00" // Fallback if no time provided
+                    } else {
+                        Instant.ofEpochMilli(currentNextTime)
+                            .atZone(ZoneId.systemDefault())
+                            .format(DateTimeFormatter.ofPattern("HH:mm"))
+                    }
+                }
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(

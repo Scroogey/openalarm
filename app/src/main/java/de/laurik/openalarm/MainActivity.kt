@@ -32,6 +32,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import android.app.AlarmManager
 import android.net.Uri
 import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -593,18 +594,35 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
 
     // 2. Group Time Adjust
     if (groupToAdjust != null) {
+        // Find the earliest next occurrence in the group
+        val nextTime = groupToAdjust!!.alarms
+            .filter { it.isEnabled }
+            .minOfOrNull { alarm ->
+                AlarmUtils.getNextOccurrence(
+                    alarm.hour,
+                    alarm.minute,
+                    alarm.daysOfWeek,
+                    0, // Ignore group offset
+                    alarm.temporaryOverrideTime,
+                    alarm.snoozeUntil,
+                    System.currentTimeMillis()
+                )
+            } ?: System.currentTimeMillis()
+
         QuickAdjustDialog(
             quickAdjustPresets = quickAdjustPresets,
             overrideTitle = "Adjust Group Alarms",
-            currentDisplay = "Adjusts all enabled alarms",
+            currentDisplay = "Adjusts all ${groupToAdjust!!.alarms.count { it.isEnabled }} enabled alarms",
+            currentNextTime = nextTime, // Pass the calculated next time
+            hasActiveOverride = groupToAdjust!!.alarms.any { it.temporaryOverrideTime != null },
             onDismiss = { groupToAdjust = null },
             onAdjust = { mins ->
-                viewModel.adjustGroupAlarms(groupToAdjust!!, mins)
+                // Apply the 6-hour limit in the UI as well
+                val clampedMins = mins.coerceIn(-360, 360)
+                viewModel.adjustGroupAlarms(groupToAdjust!!, clampedMins)
                 groupToAdjust = null
             },
-            hasActiveOverride = groupToAdjust!!.alarms.any { it.temporaryOverrideTime != null },
             onReset = {
-                // Reset all alarms in group
                 viewModel.resetGroupAlarms(groupToAdjust!!)
                 groupToAdjust = null
             }

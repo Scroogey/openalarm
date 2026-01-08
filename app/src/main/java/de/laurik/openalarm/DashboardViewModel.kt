@@ -1,6 +1,7 @@
 package de.laurik.openalarm
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
@@ -68,21 +69,35 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun adjustAlarmTime(alarm: AlarmItem, minutesToAdd: Int) {
         val group = groups.find { it.id == alarm.groupId }
         val offset = group?.offsetMinutes ?: 0
-        val minTime = if ((group?.skippedUntil ?: 0L) > System.currentTimeMillis()) group!!.skippedUntil else System.currentTimeMillis()
 
-        // Calculate where it would normally ring
+        // Calculate where it would normally ring (preserving all the original logic)
+        val minTime = if ((group?.skippedUntil ?: 0L) > System.currentTimeMillis()) {
+            group!!.skippedUntil
+        } else {
+            System.currentTimeMillis()
+        }
+
         val currentNext = AlarmUtils.getNextOccurrence(
-            alarm.hour, alarm.minute, alarm.daysOfWeek, offset,
-            alarm.temporaryOverrideTime, alarm.snoozeUntil,
-            minTimestamp = if (alarm.skippedUntil > minTime) alarm.skippedUntil else minTime
+            alarm.hour,
+            alarm.minute,
+            alarm.daysOfWeek,
+            offset,
+            alarm.temporaryOverrideTime,
+            alarm.snoozeUntil,
+            if (alarm.skippedUntil > minTime) alarm.skippedUntil else minTime
         )
 
-        // Adjust
-        val newTime = currentNext + (minutesToAdd * 60 * 1000)
+        // Create an updated alarm with the new temporary override time
+        // Let the scheduler handle the actual scheduling with the adjustment limit
+        val updated = alarm.copy(
+            temporaryOverrideTime = currentNext + (minutesToAdd * 60 * 1000)
+        )
 
-        // Save as temporary override
-        val updated = alarm.copy(temporaryOverrideTime = newTime)
+        // Save and schedule the alarm
         saveAlarm(updated, isNew = false)
+
+        // The scheduler will handle the adjustment limit when scheduling
+        AlarmScheduler(context).schedule(updated, offset)
     }
 
     // --- GROUP LOGIC ---
@@ -119,17 +134,94 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun adjustGroupAlarms(group: AlarmGroup, minutesToAdd: Int) {
-        group.alarms.forEach { alarm ->
-            if (alarm.isEnabled) {
-               adjustAlarmTime(alarm, minutesToAdd)
+    fun adjustGroupAlarms(group: AlarmGroup, minutes: Int) {
+        viewModelScope.launch {
+            try {
+                // Get all enabled alarms in the group
+                val alarmsToAdjust = group.alarms.filter { it.isEnabled }
+                if (alarmsToAdjust.isEmpty()) {
+                    Log.d("DashboardViewModel", "No enabled alarms to adjust in group ${group.id}")
+                    return@launch
+                }
+
+                // Update each alarm individually
+                alarmsToAdjust.forEach { alarm ->
+                    // Calculate the next occurrence time
+                    val nextOccurrence = AlarmUtils.getNextOccurrence(
+                        alarm.hour,
+                        alarm.minute,
+                        alarm.daysOfWeek,
+                        0, // Ignore group offset as requested
+                        alarm.temporaryOverrideTime,
+                        alarm.snoozeUntil,
+                        System.currentTimeMillis()
+                    )
+
+                    // Update in database with the adjustment
+                    val updatedAlarm = alarm.copy(
+                        temporaryOverrideTime = nextOccurrence + (minutes * 60 * 1000L)
+                    )
+                    AlarmRepository.updateAlarm(context, updatedAlarm)
+
+                    // Reschedule the alarm with the adjustment
+                    // The scheduler will handle clamping the adjustment
+                    AlarmScheduler(context).schedule(updatedAlarm, 0, minutes)
+                }
+
+                refreshAlarms()
+            } catch (e: Exception) {
+                Log.e("DashboardViewModel", "Error adjusting group alarms", e)
             }
         }
     }
 
+
     fun resetGroupAlarms(group: AlarmGroup) {
-        group.alarms.forEach { alarm ->
-            resetAlarmAdjustment(alarm)
+        viewModelScope.launch {
+            try {
+                // Create a transaction to ensure all updates happen together
+                val db = AppDatabase.getDatabase(context).alarmDao()
+
+                // Reset all alarms in the group in a single transaction
+                group.alarms.forEach { alarm ->
+                    if (alarm.temporaryOverrideTime != null) {
+                        val updatedAlarm = alarm.copy(temporaryOverrideTime = null)
+
+                        // Update in memory
+                        InternalDataStore.groups.forEach { g ->
+                            g.alarms.replaceAll { a ->
+                                if (a.id == alarm.id) updatedAlarm else a
+                            }
+                        }
+
+                        // Update in database
+                        db.updateAlarm(updatedAlarm)
+
+                        // Reschedule the alarm
+                        val scheduler = AlarmScheduler(context)
+                        val groupOffset = group.offsetMinutes
+                        scheduler.schedule(updatedAlarm, groupOffset)
+                    }
+                }
+
+                refreshAlarms()
+            } catch (e: Exception) {
+                Log.e("DashboardViewModel", "Error resetting group alarms", e)
+                // Show error to user if needed
+            }
+        }
+    }
+
+    private fun refreshAlarms() {
+        viewModelScope.launch {
+            try {
+                // Force reload from database
+                AlarmRepository.ensureLoaded(context)
+                // Refresh notifications
+                NotificationRenderer.refreshAll(context)
+            } catch (e: Exception) {
+                Log.e("DashboardViewModel", "Error refreshing alarms", e)
+            }
         }
     }
     // --- ALARM INTENTS ---
@@ -167,17 +259,39 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             val realId = AlarmRepository.getNextAlarmId(context)
             val finalAlarm = alarm.copy(id = realId)
             AlarmRepository.addAlarm(context, finalAlarm)
-            
-            // Reschedule with correct group offset
+
+            // For new alarms, don't apply any adjustment
             val group = groups.find { it.id == finalAlarm.groupId }
             val offset = group?.offsetMinutes ?: 0
             scheduler.schedule(finalAlarm, offset)
         } else {
             AlarmRepository.updateAlarm(context, alarm)
-            // Reschedule
+
+            // For existing alarms, check if there's a temporary override
             val group = groups.find { it.id == alarm.groupId }
             val offset = group?.offsetMinutes ?: 0
-            scheduler.schedule(alarm, offset)
+
+            // If there's a temporary override, we need to calculate the adjustment
+            if (alarm.temporaryOverrideTime != null) {
+                val currentNext = AlarmUtils.getNextOccurrence(
+                    alarm.hour,
+                    alarm.minute,
+                    alarm.daysOfWeek,
+                    offset,
+                    null, // Don't use temporary override for base calculation
+                    alarm.snoozeUntil,
+                    if (alarm.skippedUntil > System.currentTimeMillis()) alarm.skippedUntil else System.currentTimeMillis()
+                )
+
+                // Calculate the adjustment in minutes
+                val adjustmentMinutes = ((alarm.temporaryOverrideTime!! - currentNext) / (60 * 1000)).toInt()
+
+                // Schedule with the adjustment
+                scheduler.schedule(alarm, offset, adjustmentMinutes)
+            } else {
+                // No adjustment, schedule normally
+                scheduler.schedule(alarm, offset)
+            }
         }
         NotificationRenderer.refreshAll(context)
     }
