@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.InputStream
 import java.io.OutputStream
+import androidx.room.withTransaction
 
 @Serializable
 data class BackupData(
@@ -93,38 +94,53 @@ object BackupManager {
                 editor.commit()
 
                 // 2. Clear and Restore DB
-                val db = AppDatabase.getDatabase(context).alarmDao()
                 val dbInstance = AppDatabase.getDatabase(context)
+                val db = dbInstance.alarmDao()
                 
-                dbInstance.runInTransaction {
-                    // Transactional clear and insert
-                }
-                
-                // Clear existing
-                db.clearAllAlarms()
-                db.clearAllGroups()
-                db.clearAllTimers()
-                db.clearAllInterrupted()
+                dbInstance.withTransaction {
+                    // Clear existing
+                    db.clearAllAlarms()
+                    db.clearAllGroups()
+                    db.clearAllTimers()
+                    db.clearAllInterrupted()
 
-                // Insert groups first (due to foreign key)
-                backup.groups.forEach { db.insertGroup(it) }
-                // Insert alarms
-                backup.alarms.forEach { db.insertAlarm(it) }
+                    // Insert groups first (due to foreign key)
+                    for (group in backup.groups) {
+                        db.insertGroup(group)
+                    }
+                    // Insert alarms
+                    for (alarm in backup.alarms) {
+                        db.insertAlarm(alarm)
+                    }
+                }
 
                 // 3. Refresh Application State
                 SettingsRepository.getInstance(context).refreshAll()
                 AlarmRepository.forceReload(context)
 
-                // 4. Reschedule Alarms
+                // 4. Reschedule Alarms (Efficiently)
                 val scheduler = AlarmScheduler(context)
                 backup.alarms.forEach { alarm ->
                     if (alarm.isEnabled) {
                         val group = backup.groups.find { it.id == alarm.groupId }
-                        scheduler.schedule(alarm, group?.offsetMinutes ?: 0)
+                        // We schedule EXACT alarms, but suppress notification updates for now
+                        scheduler.scheduleExact(
+                            timeInMillis = AlarmUtils.getNextOccurrence(
+                                alarm.hour, alarm.minute, alarm.daysOfWeek, group?.offsetMinutes ?: 0,
+                                alarm.temporaryOverrideTime, alarm.snoozeUntil,
+                                minTimestamp = System.currentTimeMillis()
+                            ),
+                            alarmId = alarm.id,
+                            typeName = alarm.type.name,
+                            label = alarm.label
+                        )
                     } else {
                         scheduler.cancel(alarm)
                     }
                 }
+                
+                // Final notification update
+                scheduler.scheduleNotificationUpdate()
 
                 true
             } catch (e: Exception) {

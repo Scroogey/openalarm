@@ -11,6 +11,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 // Internal Cache (UI observes this)
@@ -30,6 +31,7 @@ internal object InternalDataStore {
 object AlarmRepository {
     // Scope for database writes
     private val scope = CoroutineScope(Dispatchers.IO)
+    private val loadMutex = kotlinx.coroutines.sync.Mutex()
     private var isLoaded = false
 
     // Exposed State
@@ -43,6 +45,8 @@ object AlarmRepository {
 
     suspend fun ensureLoaded(context: Context) {
         if (isLoaded) return
+        loadMutex.withLock {
+            if (isLoaded) return@withLock
 
         val (uiGroups, dbTimers, dbInterrupted) = withContext(Dispatchers.IO) {
             val db = AppDatabase.getDatabase(context).alarmDao()
@@ -99,6 +103,7 @@ object AlarmRepository {
         InternalDataStore.interruptedItems.addAll(dbInterrupted)
 
         isLoaded = true
+        }
     }
 
     suspend fun forceReload(context: Context) {

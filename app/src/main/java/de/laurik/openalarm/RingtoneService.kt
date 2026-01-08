@@ -45,6 +45,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     private var currentType: String = "NONE"
     private var originalSystemVolume: Int? = null
     private var targetSliderValue: Float = 1.0f
+    private var wakeLock: PowerManager.WakeLock? = null
 
     // Coroutines & Jobs
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
@@ -57,6 +58,9 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         super.onCreate()
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         tts = TextToSpeech(this, this)
+        
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OpenAlarm::RingtoneWakeLock")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -84,8 +88,14 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             }
         }
 
+        if (wakeLock?.isHeld == false) wakeLock?.acquire(10 * 60 * 1000L) // 10 min max
+
         serviceScope.launch {
+            logger.d(TAG, "Ensuring repository is loaded...")
+            val startTime = System.currentTimeMillis()
             AlarmRepository.ensureLoaded(applicationContext)
+            val loadDuration = System.currentTimeMillis() - startTime
+            logger.d(TAG, "Repository loaded in ${loadDuration}ms. Handling intent.")
             handleIntent(intent)
         }
 
@@ -681,6 +691,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         tts?.shutdown()
         serviceScope.cancel()
         AlarmRepository.setCurrentRingingId(-1)
+        if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()
     }
 

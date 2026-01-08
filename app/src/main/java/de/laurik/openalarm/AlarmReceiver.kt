@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.PowerManager
 import de.laurik.openalarm.utils.AppLogger
 import kotlinx.coroutines.launch
 
@@ -26,25 +27,37 @@ class AlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val logger = AppLogger(context)
+        val action = intent.action
+        val id = intent.getIntExtra("ALARM_ID", -1)
 
-        // 1. Tell Android "Wait, I'm doing background work"
+        logger.d(TAG, "Received intent: $action with ID: $id")
+
+        // 1. FAST PATH: Start Service immediately for ringing events
+        if ((action == null || action == "START_ALARM") && id != -1) {
+            handleStartRinging(context, intent, context.getSystemService(Context.ALARM_SERVICE) as AlarmManager)
+        }
+
+        // 2. Tell Android "Wait, I'm doing background work"
         val pendingResult = goAsync()
-        logger.d(TAG, "Received intent: ${intent.action}")
 
-        // 2. Launch a coroutine to handle the intent asynchronously
+        // 3. Launch a coroutine to handle OTHER intent types or cleanup
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            val wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OpenAlarm::ReceiverWakeLock")
+            wakeLock.acquire(10_000L) // 10s max for receiver work
+
             try {
-                // 3. Load DB (Suspends here, doesn't block UI)
-                logger.d(TAG, "Loading database...")
+                // Load DB (Needed for STOP, SKIP, etc.)
                 AlarmRepository.ensureLoaded(context)
 
-                // 4. Proceed with logic
-                handleIntent(context, intent)
+                // Proceed with logic (only if not already handled by fast path)
+                if (action != null && action != "START_ALARM") {
+                    handleIntent(context, intent)
+                }
             } catch (e: Exception) {
                 logger.e(TAG, "Error processing intent", e)
-                // Optionally notify the user about the error
             } finally {
-                // 5. Tell Android "I'm done"
+                if (wakeLock.isHeld) wakeLock.release()
                 pendingResult.finish()
             }
         }
@@ -203,31 +216,23 @@ class AlarmReceiver : BroadcastReceiver() {
     private fun handleStartRinging(context: Context, intent: Intent, am: AlarmManager) {
         val logger = AppLogger(context)
 
-        val id = intent.getIntExtra("ALARM_ID", 0)
-        if (id == 0) {
-            logger.e(TAG, "Error: Received Alarm with ID 0")
+        val id = intent.getIntExtra("ALARM_ID", -1)
+        if (id == -1) {
+            logger.e(TAG, "Error: Received Alarm with no ID")
             return
         }
+
+        // NO VALIDATION HERE (Fast path)
+        // If the item doesn't exist, RingtoneService will handle it gracefully 
+        // using its own validation after the repo loads.
+
+        logger.d(TAG, "Starting ringing service for ID: $id")
 
         val type = intent.getStringExtra("ALARM_TYPE") ?: if (id > 1000) "TIMER" else "ALARM"
         val resolvedType = when (type) {
             "SNOOZE", "SOFT", "REGULAR", "CRITICAL" -> "ALARM"
             else -> type
         }
-
-        // validate if alarm exists
-        val itemExists = if (type == "TIMER") {
-            AlarmRepository.getTimer(id) != null
-        } else {
-            AlarmRepository.getAlarm(id) != null
-        }
-
-        if (!itemExists) {
-            logger.w(TAG, "Ignoring start request for non-existent $type with ID=$id")
-            return
-        }
-
-        logger.d(TAG, "Starting ringing for ID: $id, Type: $resolvedType")
 
         val label = intent.getStringExtra("ALARM_LABEL") ?: ""
         val serviceIntent = Intent(context, RingtoneService::class.java).apply {
@@ -245,7 +250,6 @@ class AlarmReceiver : BroadcastReceiver() {
             }
         } catch (e: Exception) {
             logger.e(TAG, "Failed to start ringing service for ID: $id", e)
-            // Optionally notify the user about the failure
         }
     }
 }

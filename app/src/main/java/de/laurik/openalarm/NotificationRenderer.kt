@@ -48,20 +48,6 @@ object NotificationRenderer {
     }
 
     fun buildRingingNotification(context: Context, id: Int, type: String, label: String = "", triggerTime: Long): Notification {
-        // Validate that the alarm/timer still exists
-        val itemExists = if (type == "TIMER") {
-            AlarmRepository.getTimer(id) != null
-        } else {
-            AlarmRepository.getAlarm(id) != null
-        }
-
-        if (!itemExists) {
-            Log.w("NotificationRenderer", "Not building notification for non-existent $type with ID=$id")
-            return NotificationCompat.Builder(context, "ALARM_CHANNEL_ID")
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .setAutoCancel(true).build()
-        }
-
         val channelId = "ALARM_CHANNEL_ID"
         val now = System.currentTimeMillis()
         val elapsedNow = SystemClock.elapsedRealtime()
@@ -408,7 +394,9 @@ object NotificationRenderer {
 
     private fun updateNextAlarm(context: Context, nm: NotificationManager, now: Long, isSnoozing: Boolean) {
         val info = AlarmUtils.getNextAlarm(context)
-        if (isSnoozing) {
+        val isRinging = AlarmRepository.currentRingingId != -1
+        
+        if (isSnoozing || isRinging) {
             nm.cancel(2)
             return
         }
@@ -422,9 +410,10 @@ object NotificationRenderer {
         if (info != null) {
             val leadMs = settings.notifyBeforeMinutes.value * 60 * 1000L
             val diff = info.timestamp - now
-            // Add a generous buffer (10 seconds) to avoid immediate cancellation due to tiny timing drifts 
-            // and include a bit of "past" time to keep it visible while ringing or right before.
-            if (diff in -15000..(leadMs + 10000)) {
+            
+            // Only show if it's in the future and within the lead time.
+            // We remove the 15s past buffer to avoid negative numbers on screen.
+            if (diff in 0..leadMs) {
                 val skipIntent = Intent(context, AlarmReceiver::class.java).apply { action = "SKIP_NEXT" }
                 val skipPending = PendingIntent.getBroadcast(context, 999, skipIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                 val openIntent = Intent(context, MainActivity::class.java)
