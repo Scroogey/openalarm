@@ -228,6 +228,8 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             return
         }
 
+        StatusHub.trigger(StatusEvent.Timeout(id, type))
+
         // B: Background Timeout
         val queuedItemIndex = InternalDataStore.interruptedItems.indexOfFirst { it.id == id }
         if (queuedItemIndex != -1) {
@@ -244,13 +246,49 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                     // Auto-Snooze background alarm
                     handleAutoSnooze(alarm)
                 } else {
-                    // Missed - just show notification, don't reschedule
+                    handleMissedAlarm(alarm, id)
                     NotificationRenderer.showMissedNotification(this, id, queuedItem.label, "Timeout")
                 }
             }
         }
+    }
 
-        StatusHub.trigger(StatusEvent.Timeout(id, type))
+    // New method to handle missed alarms
+    private fun handleMissedAlarm(alarm: AlarmItem, id: Int) {
+        val now = System.currentTimeMillis()
+        val group = AlarmRepository.groups.find { it.alarms.any { a -> a.id == alarm.id } }
+        val offset = group?.offsetMinutes ?: 0
+
+        // Calculate the next normal occurrence
+        val nextOccurrence = AlarmUtils.getNextOccurrence(
+            alarm.hour, alarm.minute, alarm.daysOfWeek,
+            offset, null, null, now
+        )
+
+        // Apply the 6-hour safe window
+        val shouldSkip = nextOccurrence <= now + (10 * 60 * 60 * 1000)
+        val finalSkipTime = if (shouldSkip) now + (10 * 60 * 60 * 1000) else 0L
+
+        // Update the alarm with the skip time if needed
+        val updated = alarm.copy(
+            snoozeUntil = null,
+            currentSnoozeCount = 0,
+            skippedUntil = if (shouldSkip) finalSkipTime else alarm.skippedUntil,
+            isEnabled = if (alarm.isSingleUse) false else alarm.isEnabled
+        )
+
+        // Update in repository
+        AlarmRepository.updateAlarm(this, updated)
+
+        // Show missed notification
+        val timeStr = String.format("%02d:%02d", alarm.hour, alarm.minute)
+        NotificationRenderer.showMissedNotification(this, id, alarm.label, "Missed at $timeStr")
+
+        // Reschedule the alarm for the next occurrence if not skipped
+        if (updated.isEnabled && !shouldSkip) {
+            val scheduler = AlarmScheduler(this)
+            scheduler.schedule(updated, offset)
+        }
     }
 
     // --- STOPPING LOGIC ---
