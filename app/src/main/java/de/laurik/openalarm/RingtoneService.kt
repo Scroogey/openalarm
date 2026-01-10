@@ -11,6 +11,7 @@ import android.media.*
 import android.os.*
 import android.speech.tts.TextToSpeech
 import android.widget.Toast
+import androidx.compose.foundation.lazy.layout.PrefetchScheduler
 import androidx.core.net.toUri
 import de.laurik.openalarm.utils.AppLogger
 import kotlinx.coroutines.*
@@ -256,40 +257,11 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
     // New method to handle missed alarms
     private fun handleMissedAlarm(alarm: AlarmItem, id: Int) {
-        val now = System.currentTimeMillis()
-        val group = AlarmRepository.groups.find { it.alarms.any { a -> a.id == alarm.id } }
-        val offset = group?.offsetMinutes ?: 0
-
-        // Calculate the next normal occurrence
-        val nextOccurrence = AlarmUtils.getNextOccurrence(
-            alarm.hour, alarm.minute, alarm.daysOfWeek,
-            offset, null, null, now
-        )
-
-        // Apply the 6-hour safe window
-        val shouldSkip = nextOccurrence <= now + (10 * 60 * 60 * 1000)
-        val finalSkipTime = if (shouldSkip) now + (10 * 60 * 60 * 1000) else 0L
-
-        // Update the alarm with the skip time if needed
-        val updated = alarm.copy(
-            snoozeUntil = null,
-            currentSnoozeCount = 0,
-            skippedUntil = if (shouldSkip) finalSkipTime else alarm.skippedUntil,
-            isEnabled = if (alarm.isSingleUse) false else alarm.isEnabled
-        )
-
-        // Update in repository
-        AlarmRepository.updateAlarm(this, updated)
+        AlarmScheduler(this).rescheduleCurrentActive(alarm, this)
 
         // Show missed notification
         val timeStr = String.format("%02d:%02d", alarm.hour, alarm.minute)
         NotificationRenderer.showMissedNotification(this, id, alarm.label, "Missed at $timeStr")
-
-        // Reschedule the alarm for the next occurrence if not skipped
-        if (updated.isEnabled && !shouldSkip) {
-            val scheduler = AlarmScheduler(this)
-            scheduler.schedule(updated, offset)
-        }
     }
 
     // --- STOPPING LOGIC ---
@@ -337,40 +309,10 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         if (type == "ALARM") {
             val alarm = AlarmRepository.getAlarm(id)
             if (alarm != null) {
-                val now = System.currentTimeMillis()
-                val group = AlarmRepository.groups.find { it.id == alarm.groupId }
-                val offset = group?.offsetMinutes ?: 0
-
-                // Calculate the next normal occurrence
-                val nextOccurrence = AlarmUtils.getNextOccurrence(
-                    alarm.hour, alarm.minute, alarm.daysOfWeek,
-                    offset, null, null, now - 60_000
-                )
-
-                // Apply the 6-hour safe window
-                val shouldSkip = nextOccurrence <= now + (10 * 60 * 60 * 1000)
-                val finalSkipTime = if (shouldSkip) now + (10 * 60 * 60 * 1000) else 0L
-
-                // Update the alarm with the skip time if needed
-                val updated = alarm.copy(
-                    snoozeUntil = null,
-                    currentSnoozeCount = 0,
-                    temporaryOverrideTime = null,
-                    skippedUntil = if (shouldSkip) finalSkipTime else alarm.skippedUntil,
-                    isEnabled = if (alarm.isSingleUse) false else alarm.isEnabled
-                )
-                AlarmRepository.updateAlarm(this, updated)
-
-                // Only reschedule if the alarm is still enabled and not skipped
-                if (updated.isEnabled && !shouldSkip) {
-                    val scheduler = AlarmScheduler(this)
-                    scheduler.schedule(updated, offset)
-                }
-                // delete alarm if it is self destroying
-                if (alarm.isSelfDestroying) { AlarmRepository.deleteAlarm(this, alarm) }
+                AlarmScheduler(this).rescheduleCurrentActive(alarm, this)
 
                 if (isTimeout) {
-                    NotificationRenderer.showMissedNotification(this, id, alarm.label, "Timeout")
+                    NotificationRenderer.showMissedNotification(this, alarm.id, alarm.label, "Timeout")
                 }
             }
         } else if (type == "TIMER") {

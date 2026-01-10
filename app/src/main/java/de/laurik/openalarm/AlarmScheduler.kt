@@ -93,6 +93,45 @@ class AlarmScheduler(private val context: Context) {
     }
 
     /**
+     * reschedules an alarm that is currently active (snoozed, ringing/stopped)
+     * and applies the 6 hour safe window to avoid having the alarm ring twice when it
+     * was adjusted to ring earlier
+     */
+    fun rescheduleCurrentActive (alarm: AlarmItem, context: Context) {
+        val now = System.currentTimeMillis()
+        val group = AlarmRepository.groups.find { it.id == alarm.groupId }
+        val offset = group?.offsetMinutes ?: 0
+
+        // Calculate the next normal occurrence
+        val nextOccurrence = AlarmUtils.getNextOccurrence(
+            alarm.hour, alarm.minute, alarm.daysOfWeek,
+            offset, null, null, now - 60_000
+        )
+
+        // Apply the 6-hour safe window
+        val shouldSkip = nextOccurrence <= now + (6 * 60 * 60 * 1000)
+        val finalSkipTime = if (shouldSkip) now + (6 * 60 * 60 * 1000) else 0L
+
+        // Update the alarm with the skip time if needed
+        val updated = alarm.copy(
+            snoozeUntil = null,
+            currentSnoozeCount = 0,
+            temporaryOverrideTime = null,
+            skippedUntil = if (shouldSkip) finalSkipTime else alarm.skippedUntil,
+            isEnabled = if (alarm.isSingleUse) false else alarm.isEnabled
+        )
+        AlarmRepository.updateAlarm(context, updated)
+
+        // Only reschedule if the alarm is still enabled and not skipped
+        if (updated.isEnabled && !shouldSkip) {
+            val scheduler = AlarmScheduler(context)
+            scheduler.schedule(updated, offset)
+        }
+        // delete alarm if it is self destroying
+        if (alarm.isSelfDestroying) { AlarmRepository.deleteAlarm(context, alarm) }
+    }
+
+    /**
      * Schedules an alarm to ring at an exact time.
      *
      * @param timeInMillis The exact time in milliseconds to trigger the alarm

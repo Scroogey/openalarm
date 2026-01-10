@@ -182,17 +182,7 @@ class AlarmReceiver : BroadcastReceiver() {
             // 1. Get the alarm
             val alarm = AlarmRepository.getAlarm(id)
             if (alarm != null) {
-                // 2. Clear Snooze
-                val updated = alarm.copy(snoozeUntil = null)
-                AlarmRepository.updateAlarm(context, updated)
-
-                // 3. Reschedule for the next NORMAL time
-                // (We need the group offset)
-                val group = AlarmRepository.groups.find { it.alarms.any { a -> a.id == id } }
-                val offset = group?.offsetMinutes ?: 0
-
-                val scheduler = AlarmScheduler(context)
-                scheduler.schedule(updated, offset)
+                AlarmScheduler(context).rescheduleCurrentActive(alarm, context)
             }
 
             NotificationRenderer.refreshAll(context)
