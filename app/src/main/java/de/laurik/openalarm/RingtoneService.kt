@@ -676,8 +676,9 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 logger.e(TAG, "Fade-in failed", e)
             }
 
+            val v = perceptualVolume(targetSliderValue)
             if (ttsMode != TtsMode.NONE) {
-                startTtsLoop(ttsMode, ttsText, targetSliderValue)
+                startTtsLoop(ttsMode, ttsText, v)
             }
         }
     }
