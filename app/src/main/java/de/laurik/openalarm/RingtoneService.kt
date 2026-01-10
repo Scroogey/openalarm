@@ -249,13 +249,11 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                     handleAutoSnooze(alarm)
                 } else {
                     handleMissedAlarm(alarm, id)
-                    NotificationRenderer.showMissedNotification(this, id, queuedItem.label, "Timeout")
                 }
             }
         }
     }
 
-    // New method to handle missed alarms
     private fun handleMissedAlarm(alarm: AlarmItem, id: Int) {
         AlarmScheduler(this).rescheduleCurrentActive(alarm, this)
 
@@ -395,9 +393,6 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             // Schedule ONLY the snooze time, not the next normal occurrence
             val scheduler = AlarmScheduler(this)
             scheduler.scheduleExact(snoozeTime, alarm.id, "ALARM", alarm.label)
-
-            // Show notification
-            NotificationRenderer.showMissedNotification(this, alarm.id, alarm.label, "Auto-Snoozed ($snoozeMins m)")
 
             // Stop the current alarm
             stopMedia()
