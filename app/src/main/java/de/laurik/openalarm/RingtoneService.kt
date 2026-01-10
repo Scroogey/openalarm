@@ -17,6 +17,7 @@ import kotlinx.coroutines.*
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.pow
 
 class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
@@ -425,8 +426,15 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         StatusHub.trigger(StatusEvent.Snoozed(id, "ALARM", snoozeTime))
 
         stopMedia()
-        checkQueueAndResume()
+        if (InternalDataStore.interruptedItems.isNotEmpty()) {
+            checkQueueAndResume()
+        } else {
+            // No more alarms to ring, stop the service
+            stopSelf()
+        }
     }
+
+    // TODO: merge handleAutoSnooze and handleSnoozeAction?
 
     private fun handleAutoSnooze(alarm: AlarmItem) {
         try {
@@ -458,6 +466,8 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
             // Stop foreground service
             stopForeground(true)
+
+            StatusHub.trigger(StatusEvent.Snoozed(alarm.id, "ALARM", snoozeTime))
 
             // Check if there are any interrupted items
             if (InternalDataStore.interruptedItems.isNotEmpty()) {
@@ -615,7 +625,8 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 if (fadeInSeconds > 0) {
                     setVolume(0.01f, 0.01f)
                 } else {
-                    setVolume(volume, volume)
+                    val v = perceptualVolume(volume)
+                    setVolume(v, v)
                 }
 
                 prepare()
@@ -655,9 +666,11 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                         if (mediaPlayer == null) break
                         currentVol += volumeStep
                         val safeVol = currentVol.coerceAtMost(targetSliderValue)
-                        mediaPlayer?.setVolume(safeVol, safeVol)
+                        val v = perceptualVolume(safeVol)
+                        mediaPlayer?.setVolume(v, v)
                     }
-                    mediaPlayer?.setVolume(targetSliderValue, targetSliderValue)
+                    val finalV = perceptualVolume(targetSliderValue)
+                    mediaPlayer?.setVolume(finalV, finalV)
                 }
             } catch (e: Exception) {
                 logger.e(TAG, "Fade-in failed", e)
@@ -667,6 +680,15 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 startTtsLoop(ttsMode, ttsText, targetSliderValue)
             }
         }
+    }
+
+    // returns: perceptually linear loudness
+    private fun perceptualVolume(slider: Float): Float {
+        val clamped = slider.coerceIn(0f, 1f)
+
+        // Exponential curve (gamma correction)
+        val gamma = 2.7f
+        return clamped.pow(gamma)
     }
 
     private suspend fun startTtsLoop(mode: TtsMode, customText: String, volume: Float) {
