@@ -347,8 +347,8 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 )
 
                 // Apply the 6-hour safe window
-                val shouldSkip = nextOccurrence <= now + (6 * 60 * 60 * 1000)
-                val finalSkipTime = if (shouldSkip) now + (6 * 60 * 60 * 1000) else 0L
+                val shouldSkip = nextOccurrence <= now + (10 * 60 * 60 * 1000)
+                val finalSkipTime = if (shouldSkip) now + (10 * 60 * 60 * 1000) else 0L
 
                 // Update the alarm with the skip time if needed
                 val updated = alarm.copy(
