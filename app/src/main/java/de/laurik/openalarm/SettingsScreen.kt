@@ -77,469 +77,529 @@ fun SettingsScreen(
             }
         }
     Surface(
-        modifier = Modifier.fillMaxSize(), // Surface handles background
+        modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .systemBarsPadding() // FIX: Avoid status bar overlap
-                .padding(16.dp)
-        ) {
-            // Header
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(16.dp)
+        if (currentSubScreen == null) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .systemBarsPadding()
             ) {
-                IconButton(onClick = onClose) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.desc_back))
-                }
-                Text(
-                    stringResource(R.string.title_settings),
-                    style = MaterialTheme.typography.headlineMedium
-                )
-            }
-            HorizontalDivider()
-
-            Column(Modifier.verticalScroll(scrollState).padding(16.dp)) {
-
-                // Presets
-                Text(
-                    stringResource(R.string.section_presets),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Spacer(Modifier.height(8.dp))
-
-                val quickAdjustPresets by viewModel.quickAdjustPresets.collectAsState()
-                val timerPresets by viewModel.timerPresets.collectAsState()
-                var showAdjustEdit by remember { mutableStateOf(false) }
-                var showTimerEdit by remember { mutableStateOf(false) }
-                val context = LocalContext.current
-
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.label_quick_adjust_buttons)) },
-                    supportingContent = {
-                        Text(quickAdjustPresets.joinToString {
-                            AlarmUtils.formatMinutes(
-                                context,
-                                it
-                            )
-                        })
-                    },
-                    modifier = Modifier.clickable { showAdjustEdit = true }
-                )
-
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.label_timer_presets)) },
-                    supportingContent = {
-                        Text(timerPresets.joinToString {
-                            AlarmUtils.formatMinutes(
-                                context,
-                                it
-                            )
-                        })
-                    },
-                    modifier = Modifier.clickable { showTimerEdit = true }
-                )
-
-                HorizontalDivider(Modifier.padding(vertical = 16.dp))
-
-                // --- ALARM SETTINGS ---
-                Text(
-                    stringResource(R.string.header_alarm_settings),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Spacer(Modifier.height(8.dp))
-
-                val notifyBeforeEnabled by viewModel.notifyBeforeEnabled.collectAsState()
-                val notifyBeforeMinutes by viewModel.notifyBeforeMinutes.collectAsState()
-
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.label_notify_before)) },
-                    supportingContent = { Text(stringResource(R.string.desc_notify_before)) },
-                    trailingContent = {
-                        Switch(
-                            checked = notifyBeforeEnabled,
-                            onCheckedChange = { viewModel.setNotifyBeforeEnabled(it) }
+                // Header
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    IconButton(onClick = onClose) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            stringResource(R.string.desc_back)
                         )
                     }
-                )
+                    Text(
+                        stringResource(R.string.title_settings),
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+                }
+                HorizontalDivider()
 
-                AnimatedVisibility(visible = notifyBeforeEnabled) {
+                Column(Modifier.verticalScroll(scrollState).padding(16.dp)) {
+
+                    // Presets
+                    Text(
+                        stringResource(R.string.section_presets),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(8.dp))
+
+                    val quickAdjustPresets by viewModel.quickAdjustPresets.collectAsState()
+                    val timerPresets by viewModel.timerPresets.collectAsState()
+                    var showAdjustEdit by remember { mutableStateOf(false) }
+                    var showTimerEdit by remember { mutableStateOf(false) }
+                    val context = LocalContext.current
+
                     ListItem(
-                        headlineContent = { Text(stringResource(R.string.label_notification_time)) },
-                        supportingContent = { Text(AlarmUtils.formatMinutes(context, notifyBeforeMinutes)) },
-                        modifier = Modifier.clickable { showNotifyBeforeDialog = true }
-                    )
-                }
-
-                val ringingMode by viewModel.defaultRingingMode.collectAsState()
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.label_ringing_mode)) },
-                    supportingContent = { 
-                        val txt = when(ringingMode) {
-                            RingingScreenMode.EASY -> stringResource(R.string.mode_easy)
-                            RingingScreenMode.CLEAN -> stringResource(R.string.mode_clean)
-                            else -> stringResource(R.string.mode_clean)
-                        }
-                        Text(txt)
-                    },
-                    modifier = Modifier.clickable {
-                        val next = if (ringingMode == RingingScreenMode.CLEAN) RingingScreenMode.EASY else RingingScreenMode.CLEAN
-                        viewModel.setDefaultRingingMode(next)
-                    }
-                )
-
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.title_default_alarm_settings)) },
-                    supportingContent = { Text(stringResource(R.string.desc_default_alarm_settings)) },
-                    modifier = Modifier.clickable { currentSubScreen = "DEFAULT_ALARM" }
-                )
-
-                HorizontalDivider(Modifier.padding(vertical = 16.dp))
-
-                // --- TIMER SETTINGS ---
-                Text(
-                    stringResource(R.string.header_timer_settings),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Spacer(Modifier.height(8.dp))
-
-                // Ringtone
-                val ringtoneTitle = remember(timerRingtone) {
-                    RingtoneUtils.getRingtoneTitle(
-                        context,
-                        timerRingtone
-                    )
-                }
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.label_timer_ringtone)) },
-                    supportingContent = { Text(ringtoneTitle) },
-                    modifier = Modifier.clickable {
-                        val i = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                            putExtra(
-                                RingtoneManager.EXTRA_RINGTONE_TYPE,
-                                RingtoneManager.TYPE_ALARM
-                            )
-                            putExtra(
-                                RingtoneManager.EXTRA_RINGTONE_TITLE,
-                                context.getString(R.string.title_select_tone)
-                            )
-                            val existing =
-                                if (timerRingtone != null) Uri.parse(timerRingtone) else null
-                            putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, existing)
-                        }
-                        timerRingtoneLauncher.launch(i)
-                    }
-                )
-
-                // Vibration
-
-                val timerVibration by viewModel.timerVibration.collectAsState()
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.label_vibration)) },
-                    trailingContent = {
-                        Switch(
-                            checked = timerVibration,
-                            onCheckedChange = { isChecked ->
-                                viewModel.setTimerVibration(isChecked)
-                            }
-                        )
-                    }
-                )
-
-
-                // Auto-Stop
-                val timerAutoStop by viewModel.defaultTimerAutoStop.collectAsState()
-                var showTimerTimeoutDialog by remember { mutableStateOf(false) }
-
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.label_default_timeout)) },
-                    supportingContent = { Text(stringResource(R.string.label_minutes_fmt, timerAutoStop)) },
-                    modifier = Modifier.clickable { showTimerTimeoutDialog = true }
-                )
-
-                val timerAdjustPresets by viewModel.timerAdjustPresets.collectAsState()
-                var showAdjustPresetsEdit by remember { mutableStateOf(false) }
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.label_timer_adjust_presets)) },
-                    supportingContent = { Text(timerAdjustPresets.joinToString { "+${it/60}m" }) },
-                    modifier = Modifier.clickable { showAdjustPresetsEdit = true }
-                )
-
-                // Volume
-                Column(Modifier.padding(vertical = 8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            stringResource(R.string.label_timer_volume),
-                            modifier = Modifier.padding(start = 16.dp)
-                        )
-                        Spacer(Modifier.weight(1f))
-                        Text(
-                            "${(timerVolume * 100).toInt()}%",
-                            modifier = Modifier.padding(end = 16.dp)
-                        )
-                    }
-                    Slider(
-                        value = timerVolume,
-                        onValueChange = { viewModel.setTimerVolume(it) },
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-
-                // TTS
-                var tempTtsText by remember(timerTtsText) { mutableStateOf(timerTtsText) }
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.label_timer_tts)) },
-                    trailingContent = {
-                        Switch(
-                            checked = timerTtsEnabled,
-                            onCheckedChange = { viewModel.setTimerTts(it, tempTtsText) }
-                        )
-                    }
-                )
-                AnimatedVisibility(visible = timerTtsEnabled) {
-                    OutlinedTextField(
-                        value = tempTtsText,
-                        onValueChange = {
-                            tempTtsText = it
-                            viewModel.setTimerTts(true, it)
+                        headlineContent = { Text(stringResource(R.string.label_quick_adjust_buttons)) },
+                        supportingContent = {
+                            Text(quickAdjustPresets.joinToString {
+                                AlarmUtils.formatMinutes(
+                                    context,
+                                    it
+                                )
+                            })
                         },
-                        label = { Text(stringResource(R.string.label_timer_tts_text)) },
-                        placeholder = { Text(stringResource(R.string.hint_timer_tts_text)) },
-                        modifier = Modifier.fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                        modifier = Modifier.clickable { showAdjustEdit = true }
                     )
-                }
 
-                HorizontalDivider(Modifier.padding(vertical = 16.dp))
-
-                // --- Appearance ---
-
-                Text(
-                    stringResource(R.string.header_appearance),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Spacer(Modifier.height(8.dp))
-
-                // Logic:
-                // Dark Mode Switch:
-                // - On: Sets theme to DARK (or preserves BLACK if it was already BLACK).
-                // - Off: Sets theme to LIGHT.
-                // Black Mode Switch:
-                // - On: Sets theme to BLACK.
-                // - Off: Sets theme to DARK.
-
-                val themeMode by viewModel.themeMode.collectAsState()
-                val isPureBlack by viewModel.isPureBlack.collectAsState()
-                val isSystem = themeMode == AppThemeMode.SYSTEM
-                val isDark = themeMode == AppThemeMode.DARK
-                
-                // Effective Dark State for visual feedback
-                val effectivelyInDark = when (themeMode) {
-                    AppThemeMode.SYSTEM -> isSystemInDarkTheme()
-                    AppThemeMode.DARK -> true
-                    else -> false
-                }
-
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.label_follow_system)) },
-                    trailingContent = {
-                        Switch(
-                            checked = isSystem,
-                            onCheckedChange = { checked ->
-                                if (checked) viewModel.setThemeMode(AppThemeMode.SYSTEM)
-                                else viewModel.setThemeMode(AppThemeMode.LIGHT)
-                            }
-                        )
-                    }
-                )
-
-                if (!isSystem) {
                     ListItem(
-                        headlineContent = { Text(stringResource(R.string.label_dark_mode)) },
+                        headlineContent = { Text(stringResource(R.string.label_timer_presets)) },
+                        supportingContent = {
+                            Text(timerPresets.joinToString {
+                                AlarmUtils.formatMinutes(
+                                    context,
+                                    it
+                                )
+                            })
+                        },
+                        modifier = Modifier.clickable { showTimerEdit = true }
+                    )
+
+                    HorizontalDivider(Modifier.padding(vertical = 16.dp))
+
+                    // --- ALARM SETTINGS ---
+                    Text(
+                        stringResource(R.string.header_alarm_settings),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(8.dp))
+
+                    val notifyBeforeEnabled by viewModel.notifyBeforeEnabled.collectAsState()
+                    val notifyBeforeMinutes by viewModel.notifyBeforeMinutes.collectAsState()
+
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.label_notify_before)) },
+                        supportingContent = { Text(stringResource(R.string.desc_notify_before)) },
                         trailingContent = {
                             Switch(
-                                checked = isDark,
-                                onCheckedChange = { checked ->
-                                    viewModel.setThemeMode(if (checked) AppThemeMode.DARK else AppThemeMode.LIGHT)
+                                checked = notifyBeforeEnabled,
+                                onCheckedChange = { viewModel.setNotifyBeforeEnabled(it) }
+                            )
+                        }
+                    )
+
+                    AnimatedVisibility(visible = notifyBeforeEnabled) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.label_notification_time)) },
+                            supportingContent = {
+                                Text(
+                                    AlarmUtils.formatMinutes(
+                                        context,
+                                        notifyBeforeMinutes
+                                    )
+                                )
+                            },
+                            modifier = Modifier.clickable { showNotifyBeforeDialog = true }
+                        )
+                    }
+
+                    val ringingMode by viewModel.defaultRingingMode.collectAsState()
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.label_ringing_mode)) },
+                        supportingContent = {
+                            val txt = when (ringingMode) {
+                                RingingScreenMode.EASY -> stringResource(R.string.mode_easy)
+                                RingingScreenMode.CLEAN -> stringResource(R.string.mode_clean)
+                                else -> stringResource(R.string.mode_clean)
+                            }
+                            Text(txt)
+                        },
+                        modifier = Modifier.clickable {
+                            val next =
+                                if (ringingMode == RingingScreenMode.CLEAN) RingingScreenMode.EASY else RingingScreenMode.CLEAN
+                            viewModel.setDefaultRingingMode(next)
+                        }
+                    )
+
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.title_default_alarm_settings)) },
+                        supportingContent = { Text(stringResource(R.string.desc_default_alarm_settings)) },
+                        modifier = Modifier.clickable { currentSubScreen = "DEFAULT_ALARM" }
+                    )
+
+                    HorizontalDivider(Modifier.padding(vertical = 16.dp))
+
+                    // --- TIMER SETTINGS ---
+                    Text(
+                        stringResource(R.string.header_timer_settings),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(8.dp))
+
+                    // Ringtone
+                    val ringtoneTitle = remember(timerRingtone) {
+                        RingtoneUtils.getRingtoneTitle(
+                            context,
+                            timerRingtone
+                        )
+                    }
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.label_timer_ringtone)) },
+                        supportingContent = { Text(ringtoneTitle) },
+                        modifier = Modifier.clickable {
+                            val i = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                putExtra(
+                                    RingtoneManager.EXTRA_RINGTONE_TYPE,
+                                    RingtoneManager.TYPE_ALARM
+                                )
+                                putExtra(
+                                    RingtoneManager.EXTRA_RINGTONE_TITLE,
+                                    context.getString(R.string.title_select_tone)
+                                )
+                                val existing =
+                                    if (timerRingtone != null) Uri.parse(timerRingtone) else null
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, existing)
+                            }
+                            timerRingtoneLauncher.launch(i)
+                        }
+                    )
+
+                    // Vibration
+
+                    val timerVibration by viewModel.timerVibration.collectAsState()
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.label_vibration)) },
+                        trailingContent = {
+                            Switch(
+                                checked = timerVibration,
+                                onCheckedChange = { isChecked ->
+                                    viewModel.setTimerVibration(isChecked)
                                 }
                             )
                         }
                     )
-                }
 
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.label_pure_black)) },
-                    supportingContent = { Text("Only applied when Dark Mode is active.") },
-                    trailingContent = {
-                        Switch(
-                            checked = isPureBlack,
-                            onCheckedChange = { viewModel.setPureBlack(it) }
+
+                    // Auto-Stop
+                    val timerAutoStop by viewModel.defaultTimerAutoStop.collectAsState()
+                    var showTimerTimeoutDialog by remember { mutableStateOf(false) }
+
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.label_default_timeout)) },
+                        supportingContent = {
+                            Text(
+                                stringResource(
+                                    R.string.label_minutes_fmt,
+                                    timerAutoStop
+                                )
+                            )
+                        },
+                        modifier = Modifier.clickable { showTimerTimeoutDialog = true }
+                    )
+
+                    val timerAdjustPresets by viewModel.timerAdjustPresets.collectAsState()
+                    var showAdjustPresetsEdit by remember { mutableStateOf(false) }
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.label_timer_adjust_presets)) },
+                        supportingContent = { Text(timerAdjustPresets.joinToString { "+${it / 60}m" }) },
+                        modifier = Modifier.clickable { showAdjustPresetsEdit = true }
+                    )
+
+                    // Volume
+                    Column(Modifier.padding(vertical = 8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                stringResource(R.string.label_timer_volume),
+                                modifier = Modifier.padding(start = 16.dp)
+                            )
+                            Spacer(Modifier.weight(1f))
+                            Text(
+                                "${(timerVolume * 100).toInt()}%",
+                                modifier = Modifier.padding(end = 16.dp)
+                            )
+                        }
+                        Slider(
+                            value = timerVolume,
+                            onValueChange = { viewModel.setTimerVolume(it) },
+                            modifier = Modifier.padding(horizontal = 16.dp)
                         )
                     }
-                )
 
-                HorizontalDivider(Modifier.padding(vertical = 16.dp))
+                    // TTS
+                    var tempTtsText by remember(timerTtsText) { mutableStateOf(timerTtsText) }
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.label_timer_tts)) },
+                        trailingContent = {
+                            Switch(
+                                checked = timerTtsEnabled,
+                                onCheckedChange = { viewModel.setTimerTts(it, tempTtsText) }
+                            )
+                        }
+                    )
+                    AnimatedVisibility(visible = timerTtsEnabled) {
+                        OutlinedTextField(
+                            value = tempTtsText,
+                            onValueChange = {
+                                tempTtsText = it
+                                viewModel.setTimerTts(true, it)
+                            },
+                            label = { Text(stringResource(R.string.label_timer_tts_text)) },
+                            placeholder = { Text(stringResource(R.string.hint_timer_tts_text)) },
+                            modifier = Modifier.fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
 
-                // --- SYSTEM ---
-                Text(
-                    "Advanced",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Spacer(Modifier.height(8.dp))
+                    HorizontalDivider(Modifier.padding(vertical = 16.dp))
 
-                ListItem(
-                    headlineContent = { Text("View Logs") },
-                    supportingContent = { Text("View application logs for debugging") },
-                    modifier = Modifier.clickable { currentSubScreen = "LOG_VIEWER" }
-                )
+                    // --- Appearance ---
 
-                HorizontalDivider(Modifier.padding(vertical = 16.dp))
+                    Text(
+                        stringResource(R.string.header_appearance),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(8.dp))
 
-                // --- BACKUP ---
-                Text(
-                    "Backup",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Spacer(Modifier.height(8.dp))
+                    // Logic:
+                    // Dark Mode Switch:
+                    // - On: Sets theme to DARK (or preserves BLACK if it was already BLACK).
+                    // - Off: Sets theme to LIGHT.
+                    // Black Mode Switch:
+                    // - On: Sets theme to BLACK.
+                    // - Off: Sets theme to DARK.
 
-                val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-                    uri?.let {
-                        val outputStream = context.contentResolver.openOutputStream(it)
-                        if (outputStream != null) {
-                            viewModel.viewModelScope.launch {
-                                val success = viewModel.exportBackup(outputStream)
-                                if (success) {
-                                    android.widget.Toast.makeText(context, "Backup exported successfully", android.widget.Toast.LENGTH_SHORT).show()
-                                } else {
-                                    android.widget.Toast.makeText(context, "Export failed", android.widget.Toast.LENGTH_SHORT).show()
+                    val themeMode by viewModel.themeMode.collectAsState()
+                    val isPureBlack by viewModel.isPureBlack.collectAsState()
+                    val isSystem = themeMode == AppThemeMode.SYSTEM
+                    val isDark = themeMode == AppThemeMode.DARK
+
+                    // Effective Dark State for visual feedback
+                    val effectivelyInDark = when (themeMode) {
+                        AppThemeMode.SYSTEM -> isSystemInDarkTheme()
+                        AppThemeMode.DARK -> true
+                        else -> false
+                    }
+
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.label_follow_system)) },
+                        trailingContent = {
+                            Switch(
+                                checked = isSystem,
+                                onCheckedChange = { checked ->
+                                    if (checked) viewModel.setThemeMode(AppThemeMode.SYSTEM)
+                                    else viewModel.setThemeMode(AppThemeMode.LIGHT)
                                 }
+                            )
+                        }
+                    )
+
+                    if (!isSystem) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.label_dark_mode)) },
+                            trailingContent = {
+                                Switch(
+                                    checked = isDark,
+                                    onCheckedChange = { checked ->
+                                        viewModel.setThemeMode(if (checked) AppThemeMode.DARK else AppThemeMode.LIGHT)
+                                    }
+                                )
                             }
-                        }
+                        )
                     }
-                }
 
-                val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-                    uri?.let {
-                        pendingImportUri = it
-                        showImportConfirm = true
-                    }
-                }
-
-                ListItem(
-                    headlineContent = { Text("Export Backup") },
-                    supportingContent = { Text("Save all settings and alarms to a file") },
-                    modifier = Modifier.clickable {
-                        exportLauncher.launch("openalarm_backup_${System.currentTimeMillis()}.json")
-                    }
-                )
-
-                ListItem(
-                    headlineContent = { Text("Import Backup") },
-                    supportingContent = { Text("Restore settings and alarms from a file") },
-                    modifier = Modifier.clickable {
-                        importLauncher.launch("application/json")
-                    }
-                )
-
-                // --- DIALOGS ---
-                if (currentSubScreen == "LOG_VIEWER") {
-                    Dialog(
-                        onDismissRequest = { currentSubScreen = null },
-                        properties = DialogProperties(usePlatformDefaultWidth = false),
-                        content = {
-                            LogViewerScreen(onBack = { currentSubScreen = null })
-                        }
-                    )                }
-                if (showAdjustEdit) {
-                    PresetEditDialog(
-                        title = stringResource(R.string.title_edit_adjust_presets),
-                        currentValues = quickAdjustPresets,
-                        onDismiss = { showAdjustEdit = false },
-                        onConfirm = {
-                            viewModel.setQuickAdjustPresets(it)
-                            showAdjustEdit = false
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.label_pure_black)) },
+                        supportingContent = { Text("Only applied when Dark Mode is active.") },
+                        trailingContent = {
+                            Switch(
+                                checked = isPureBlack,
+                                onCheckedChange = { viewModel.setPureBlack(it) }
+                            )
                         }
                     )
-                }
-                if (showTimerEdit) {
-                    PresetEditDialog(
-                        title = stringResource(R.string.title_edit_timer_presets),
-                        currentValues = timerPresets,
-                        onDismiss = { showTimerEdit = false },
-                        onConfirm = {
-                            viewModel.setTimerPresets(it)
-                            showTimerEdit = false
-                        }
+
+                    HorizontalDivider(Modifier.padding(vertical = 16.dp))
+
+                    // --- SYSTEM ---
+                    Text(
+                        "Advanced",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                }
-                if (showTimerTimeoutDialog) {
-                    NumpadInputDialog(
-                        title = stringResource(R.string.title_timer_auto_stop),
-                        initialValue = timerAutoStop,
-                        onDismiss = { showTimerTimeoutDialog = false },
-                        onConfirm = { viewModel.setDefaultTimerAutoStop(it); showTimerTimeoutDialog = false }
+                    Spacer(Modifier.height(8.dp))
+
+                    ListItem(
+                        headlineContent = { Text("View Logs") },
+                        supportingContent = { Text("View application logs for debugging") },
+                        modifier = Modifier.clickable { currentSubScreen = "LOG_VIEWER" }
                     )
-                }
-                if (showNotifyBeforeDialog) {
-                    NumpadInputDialog(
-                        title = stringResource(R.string.title_notify_before),
-                        initialValue = notifyBeforeMinutes,
-                        onDismiss = { showNotifyBeforeDialog = false },
-                        onConfirm = { viewModel.setNotifyBeforeMinutes(it); showNotifyBeforeDialog = false }
+
+                    HorizontalDivider(Modifier.padding(vertical = 16.dp))
+
+                    // --- BACKUP ---
+                    Text(
+                        "Backup",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                }
-                if (showAdjustPresetsEdit) {
-                    PresetEditDialog(
-                        title = stringResource(R.string.label_timer_adjust_presets),
-                        currentValues = timerAdjustPresets.map { it / 60 },
-                        onDismiss = { showAdjustPresetsEdit = false },
-                        onConfirm = { 
-                            viewModel.setTimerAdjustPresets(it.map { it * 60 })
-                            showAdjustPresetsEdit = false 
-                        }
-                    )
-                }
-                
-                if (showImportConfirm) {
-                    ImportConfirmationDialog(
-                        onDismiss = { 
-                            showImportConfirm = false
-                            pendingImportUri = null
-                        },
-                        onConfirm = {
-                            showImportConfirm = false
-                            pendingImportUri?.let { uri ->
-                                val inputStream = context.contentResolver.openInputStream(uri)
-                                if (inputStream != null) {
+                    Spacer(Modifier.height(8.dp))
+
+                    val exportLauncher =
+                        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+                            uri?.let {
+                                val outputStream = context.contentResolver.openOutputStream(it)
+                                if (outputStream != null) {
                                     viewModel.viewModelScope.launch {
-                                        val success = viewModel.importBackup(inputStream)
+                                        val success = viewModel.exportBackup(outputStream)
                                         if (success) {
-                                            android.widget.Toast.makeText(context, "Backup imported successfully", android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                "Backup exported successfully",
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
                                         } else {
-                                            android.widget.Toast.makeText(context, "Import failed", android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                "Export failed",
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
                                         }
-                                        pendingImportUri = null
                                     }
                                 }
                             }
                         }
+
+                    val importLauncher =
+                        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+                            uri?.let {
+                                pendingImportUri = it
+                                showImportConfirm = true
+                            }
+                        }
+
+                    ListItem(
+                        headlineContent = { Text("Export Backup") },
+                        supportingContent = { Text("Save all settings and alarms to a file") },
+                        modifier = Modifier.clickable {
+                            exportLauncher.launch("openalarm_backup_${System.currentTimeMillis()}.json")
+                        }
                     )
+
+                    ListItem(
+                        headlineContent = { Text("Import Backup") },
+                        supportingContent = { Text("Restore settings and alarms from a file") },
+                        modifier = Modifier.clickable {
+                            importLauncher.launch("application/json")
+                        }
+                    )
+
+                    // --- About/Credits ---
+                    Text(
+                        "About",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(8.dp))
+
+                    ListItem(
+                        headlineContent = { Text("Open Source Licenses") },
+                        supportingContent = { Text("Licenses of open source libraries used to build this app.") },
+                        modifier = Modifier.clickable {
+                            currentSubScreen = "ABOUT"
+                        }
+                    )
+
+                    // --- DIALOGS ---
+                    if (showAdjustEdit) {
+                        PresetEditDialog(
+                            title = stringResource(R.string.title_edit_adjust_presets),
+                            currentValues = quickAdjustPresets,
+                            onDismiss = { showAdjustEdit = false },
+                            onConfirm = {
+                                viewModel.setQuickAdjustPresets(it)
+                                showAdjustEdit = false
+                            }
+                        )
+                    }
+                    if (showTimerEdit) {
+                        PresetEditDialog(
+                            title = stringResource(R.string.title_edit_timer_presets),
+                            currentValues = timerPresets,
+                            onDismiss = { showTimerEdit = false },
+                            onConfirm = {
+                                viewModel.setTimerPresets(it)
+                                showTimerEdit = false
+                            }
+                        )
+                    }
+                    if (showTimerTimeoutDialog) {
+                        NumpadInputDialog(
+                            title = stringResource(R.string.title_timer_auto_stop),
+                            initialValue = timerAutoStop,
+                            onDismiss = { showTimerTimeoutDialog = false },
+                            onConfirm = {
+                                viewModel.setDefaultTimerAutoStop(it); showTimerTimeoutDialog =
+                                false
+                            }
+                        )
+                    }
+                    if (showNotifyBeforeDialog) {
+                        NumpadInputDialog(
+                            title = stringResource(R.string.title_notify_before),
+                            initialValue = notifyBeforeMinutes,
+                            onDismiss = { showNotifyBeforeDialog = false },
+                            onConfirm = {
+                                viewModel.setNotifyBeforeMinutes(it); showNotifyBeforeDialog = false
+                            }
+                        )
+                    }
+                    if (showAdjustPresetsEdit) {
+                        PresetEditDialog(
+                            title = stringResource(R.string.label_timer_adjust_presets),
+                            currentValues = timerAdjustPresets.map { it / 60 },
+                            onDismiss = { showAdjustPresetsEdit = false },
+                            onConfirm = {
+                                viewModel.setTimerAdjustPresets(it.map { it * 60 })
+                                showAdjustPresetsEdit = false
+                            }
+                        )
+                    }
+
+                    if (showImportConfirm) {
+                        ImportConfirmationDialog(
+                            onDismiss = {
+                                showImportConfirm = false
+                                pendingImportUri = null
+                            },
+                            onConfirm = {
+                                showImportConfirm = false
+                                pendingImportUri?.let { uri ->
+                                    val inputStream = context.contentResolver.openInputStream(uri)
+                                    if (inputStream != null) {
+                                        viewModel.viewModelScope.launch {
+                                            val success = viewModel.importBackup(inputStream)
+                                            if (success) {
+                                                android.widget.Toast.makeText(
+                                                    context,
+                                                    "Backup imported successfully",
+                                                    android.widget.Toast.LENGTH_SHORT
+                                                ).show()
+                                            } else {
+                                                android.widget.Toast.makeText(
+                                                    context,
+                                                    "Import failed",
+                                                    android.widget.Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                            pendingImportUri = null
+                                        }
+                                    }
+                                }
+                            }
+                        )
+                    }
                 }
             }
-        }
-        
-        if (currentSubScreen == "DEFAULT_ALARM") {
+        } else if (currentSubScreen == "DEFAULT_ALARM") {
             DefaultAlarmSettingsScreen(
                 viewModel = viewModel,
                 onBack = { currentSubScreen = null }
+            )
+        } else if (currentSubScreen == "ABOUT") {
+            AboutScreen(
+                onBack = { currentSubScreen = null }
+            )
+        } else if (currentSubScreen == "LOG_VIEWER") {
+            Dialog(
+                onDismissRequest = { currentSubScreen = null },
+                properties = DialogProperties(usePlatformDefaultWidth = false),
+                content = {
+                    LogViewerScreen(onBack = { currentSubScreen = null })
+                }
             )
         }
     }

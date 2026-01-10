@@ -51,8 +51,8 @@ class FileLogger(context: Context) {
                     else -> "U"
                 }
 
-                writer.appendln("$timestamp - $levelStr/$tag - $message")
-                throwable?.let { writer.appendln(it.stackTraceToString()) }
+                writer.appendLine("$timestamp - $levelStr/$tag - $message")
+                throwable?.let { writer.appendLine(it.stackTraceToString()) }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to write to log file", e)

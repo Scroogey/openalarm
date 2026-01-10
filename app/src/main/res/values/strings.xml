@@ -223,4 +223,5 @@
     <string name="log_clear">Clear log</string>
     <string name="log_share">Share logs</string>
     <string name="max_adjustment_limit">Max adjust time is 6h</string>
+    <string name="title_about_settings">About</string>
 </resources>

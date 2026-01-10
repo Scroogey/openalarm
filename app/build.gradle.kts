@@ -3,7 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     kotlin("plugin.serialization") version "2.0.0"
-    id("com.google.devtools.ksp") version "2.0.0-1.0.21"
+    id("com.google.devtools.ksp") version "2.3.3"
+    id("com.mikepenz.aboutlibraries.plugin.android")
 }
 
 android {
@@ -48,7 +49,7 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0") // Or your version
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation(libs.compose.icons.extended)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -61,10 +62,13 @@ dependencies {
     implementation(libs.androidx.room.common.jvm)
     implementation(libs.androidx.compose.ui.text)
     implementation(libs.androidx.compose.animation)
-    val roomversion = "2.6.1"
-    implementation("androidx.room:room-runtime:$roomversion")
-    implementation("androidx.room:room-ktx:$roomversion")
-    ksp("androidx.room:room-compiler:$roomversion")
+    implementation(libs.aboutlibraries.core)
+    implementation(libs.aboutlibraries.compose.core)
+    implementation(libs.aboutlibraries.compose.m3)
+    val room_version = "2.8.4"
+    implementation("androidx.room:room-runtime:$room_version")
+    implementation("androidx.room:room-ktx:$room_version")
+    ksp("androidx.room:room-compiler:$room_version")
 //    testImplementation(libs.junit)
 //    androidTestImplementation(libs.androidx.junit)
 //    androidTestImplementation(libs.androidx.espresso.core)
