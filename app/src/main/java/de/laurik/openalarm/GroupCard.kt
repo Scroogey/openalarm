@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.ColorUtils
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 
 @Composable
 fun GroupCard(
@@ -176,13 +177,12 @@ fun GroupCard(
                 ) {
                     OutlinedButton(
                         onClick = onAdjust,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                        border = BorderStroke(1.dp, contentColor.copy(alpha = 0.5f))
+                        border = BorderStroke(2.dp, contentColor.copy(alpha = 0.5f))
                     ) {
                         Text(
-                            "Adjust next ringing time for all alarms in group",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 10.sp,
+                            stringResource(R.string.adjust_group_time),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontSize = 12.sp,
                             color = contentColor
                         )
                     }
@@ -191,7 +191,6 @@ fun GroupCard(
 
             // EXPANDED CONTENT
             if (group.isExpanded) {
-                // FIX: Chained padding calls to resolve "None of the following candidates" error
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
