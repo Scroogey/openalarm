@@ -1,5 +1,6 @@
 package de.laurik.openalarm
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.media.RingtoneManager
 import android.net.Uri
@@ -33,9 +34,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewModelScope
+import com.mikepenz.aboutlibraries.ui.compose.android.produceLibraries
+import com.mikepenz.aboutlibraries.ui.compose.m3.LibrariesContainer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -477,6 +482,8 @@ fun SettingsScreen(
                         }
                     )
 
+                    HorizontalDivider(Modifier.padding(vertical = 16.dp))
+
                     // --- About/Credits ---
                     Text(
                         "About",
@@ -486,11 +493,25 @@ fun SettingsScreen(
                     Spacer(Modifier.height(8.dp))
 
                     ListItem(
-                        headlineContent = { Text("Open Source Licenses") },
-                        supportingContent = { Text("Licenses of open source libraries used to build this app.") },
+                        headlineContent = { Text("Open Source Libraries") },
+                        supportingContent = { Text("Open source libraries used to make this app.") },
                         modifier = Modifier.clickable {
-                            currentSubScreen = "ABOUT"
+                            currentSubScreen = "OPEN_SOURCE_LIBRARIES"
                         }
+                    )
+
+                    ListItem(
+                        headlineContent = { Text("License") },
+                        supportingContent = { Text("This app is licensed under the Apache-2.0 license") },
+                        modifier = Modifier.clickable {
+                            currentSubScreen = "LICENSE"
+                        } // TODO
+
+                    )
+
+                    ListItem(
+                        headlineContent = { Text("Author of Open Alarm") },
+                        supportingContent = { Text("Lauri Kammerer, Copyright 2026") },
                     )
 
                     // --- DIALOGS ---
@@ -589,8 +610,12 @@ fun SettingsScreen(
                 viewModel = viewModel,
                 onBack = { currentSubScreen = null }
             )
-        } else if (currentSubScreen == "ABOUT") {
+        } else if (currentSubScreen == "OPEN_SOURCE_LIBRARIES") {
             AboutScreen(
+                onBack = { currentSubScreen = null }
+            )
+        } else if (currentSubScreen == "LICENSE") {
+            LicenseScreen(
                 onBack = { currentSubScreen = null }
             )
         } else if (currentSubScreen == "LOG_VIEWER") {
@@ -731,4 +756,59 @@ fun ImportConfirmationDialog(
             }
         }
     )
+}
+
+@SuppressLint("LocalContextResourcesRead")
+@Composable
+fun LicenseScreen(
+    onBack: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(16.dp)) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.desc_back))
+            }
+            Text(stringResource(R.string.title_license_settings), style = MaterialTheme.typography.headlineMedium)
+        }
+
+        val context = LocalContext.current
+        val scrollState = rememberScrollState()
+        HorizontalDivider()
+        val text = context.resources
+            .openRawResource(R.raw.license)
+            .bufferedReader()
+            .readLines()
+            .joinToString("\n") { it.trimStart()}
+        Text(
+            text,
+            modifier = Modifier
+                .verticalScroll(scrollState)
+                .fillMaxSize()
+                .padding(16.dp),
+            fontFamily = FontFamily.Monospace
+        )
+    }
+}
+
+@Composable
+fun AboutScreen(
+    onBack: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(16.dp)) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.desc_back))
+            }
+            Text(stringResource(R.string.title_open_source_libraries_settings), style = MaterialTheme.typography.headlineMedium)
+        }
+
+        HorizontalDivider()
+
+        val libraries by produceLibraries(R.raw.aboutlibraries)
+
+        LibrariesContainer(
+            libraries = libraries,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
 }
