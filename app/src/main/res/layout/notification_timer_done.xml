@@ -6,15 +6,6 @@
     android:orientation="horizontal"
     android:background="@android:color/transparent">
 
-    <!-- Icon -->
-    <ImageView
-        android:id="@+id/notif_icon"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:padding="10dp"
-        android:src="@drawable/ic_alarm"
-        android:tint="#FFFFFF" />
-
     <!-- Text Area -->
     <LinearLayout
         android:layout_width="0dp"

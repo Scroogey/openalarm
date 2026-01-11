@@ -4,6 +4,10 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -13,6 +17,12 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     // Because Repository uses SnapshotStateList, Compose will update automatically
     val groups = AlarmRepository.groups
     val activeTimers = AlarmRepository.activeTimers
+    val currentTime = flow {
+        while (true) {
+            emit(System.currentTimeMillis())
+            delay(1000)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), System.currentTimeMillis())
 
     private val context = application.applicationContext
     private val scheduler = AlarmScheduler(context)

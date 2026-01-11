@@ -48,7 +48,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.util.Calendar
+import kotlin.collections.associate
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -375,8 +377,8 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
                     modifier = Modifier.align(Alignment.Start).padding(vertical = 8.dp)
                 )
                 viewModel.activeTimers.forEach { timer ->
-                    // Timer Card Logic...
-                    val diff = timer.endTime - System.currentTimeMillis()
+                    val currentTime by viewModel.currentTime.collectAsStateWithLifecycle()
+                    val diff = timer.endTime - currentTime
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -386,7 +388,7 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
                                     putExtra("ALARM_TYPE", "TIMER")
                                     putExtra("ALARM_ID", timer.id)
                                     putExtra("START_TIME", timer.endTime - timer.totalDuration)
-                                    setData(android.net.Uri.parse("custom://TIMER/${timer.id}"))
+                                    setData(Uri.parse("custom://TIMER/${timer.id}"))
                                 }
                                 context.startActivity(intent)
                             },
