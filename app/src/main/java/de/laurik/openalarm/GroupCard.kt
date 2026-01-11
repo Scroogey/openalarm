@@ -11,7 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.* // Import for remember, mutableStateOf
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -51,14 +51,13 @@ fun GroupCard(
     // Colors
     val isSystemDark = isSystemInDarkTheme()
     val baseColor = Color(group.colorArgb)
-    // Only -1 is truly "default/unset". White (0xFFFFFFFF) is a valid custom color.
     val isDefaultColor = group.colorArgb == -1
-    
+
     // New Logic:
     // Light Mode: Pastel filled background (mix with white)
     // Dark/Black Mode: Surface background with colored outline
     val useOutline = isSystemDark && !isDefaultColor
-    
+
     val cardColor = if (isDefaultColor) {
         MaterialTheme.colorScheme.surfaceVariant
     } else if (useOutline) {
@@ -73,6 +72,9 @@ fun GroupCard(
 
     // Arrow rotation
     val rotation by animateFloatAsState(targetValue = if (group.isExpanded) 180f else 0f, label = "arrow")
+
+    val emptyListText = stringResource(R.string.alarmlist_empty)
+    val nextTimeTemplate = stringResource(R.string.next_time_group)
 
     // Reactively calculate the summary and next ringing time
     val groupSummary = remember(group.alarms.size, anyEnabled, group.offsetMinutes, group.skippedUntil, ticker) {
@@ -89,11 +91,11 @@ fun GroupCard(
         val nextTimeStr = nextTime?.let {
             if (it > 0) {
                 val timeUntil = AlarmUtils.getTimeUntilString(context, it, ticker)
-                "Next: $timeUntil"
+                String.format(nextTimeTemplate, timeUntil)
             } else null
         }
 
-        val alarmList = if (group.alarms.isEmpty()) "Empty"
+        val alarmList = if (group.alarms.isEmpty()) emptyListText
         else group.alarms.sortedBy { it.hour * 60 + it.minute }
             .joinToString(", ") { String.format("%02d:%02d", it.hour, it.minute) }
 
@@ -154,13 +156,13 @@ fun GroupCard(
 
                 // Settings - directly opens edit dialog
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Settings, "Edit Group", tint = contentColor)
+                    Icon(Icons.Default.Settings, stringResource(R.string.edit_group), tint = contentColor)
                 }
 
                 // Expand Arrow
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = "Expand",
+                    contentDescription = stringResource(R.string.desc_expand),
                     tint = contentColor,
                     modifier = Modifier.rotate(rotation)
                 )

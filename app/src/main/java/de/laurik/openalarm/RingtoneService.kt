@@ -362,7 +362,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         val group = AlarmRepository.groups.find { it.id == alarm.groupId }
         AlarmScheduler(this).schedule(updated, group?.offsetMinutes ?: 0)
 
-        Toast.makeText(this, "Snoozed for $snoozeMins min", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, this.getString(R.string.snoozed_for_notif, snoozeMins), Toast.LENGTH_SHORT).show()
         StatusHub.trigger(StatusEvent.Snoozed(id, "ALARM", snoozeTime))
 
         stopMedia()
@@ -516,7 +516,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             vibrate = s.timerVibration.value
             if (s.timerTtsEnabled.value) {
                 ttsMode = TtsMode.ONCE
-                ttsText = s.timerTtsText.value.ifBlank { "Timer Done" }
+                ttsText = s.timerTtsText.value.ifBlank { this.getString(R.string.default_tts_timer_done) }
             }
         }
 

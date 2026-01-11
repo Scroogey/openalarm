@@ -41,10 +41,10 @@
     <string name="label_sound">Sound</string>
     <string name="label_fade_in">Fade In</string>
     <string name="label_fade_duration">Duration: %1$s</string>
-    <string name="label_speak_time">Speak Time</string>
-    <string name="tts_none">None</string>
-    <string name="tts_start">Start</string>
-    <string name="tts_every_min">Every Min</string>
+    <string name="label_speak_time">Text To Speach</string>
+    <string name="tts_none">No TTS</string>
+    <string name="tts_start">Once</string>
+    <string name="tts_every_min">Every Minute</string>
     <string name="label_volume_override">Volume Override</string>
     <string name="label_system">System</string>
     <string name="title_new_timer">New Timer</string>
@@ -171,7 +171,7 @@
     <string name="label_follow_system">Follow System</string>
     <string name="label_dark_mode">Dark Mode</string>
     <string name="label_pure_black">Pure Black Mode</string>
-    <string name="desc_pure_black">Save battery on OLED screens</string>
+    <string name="desc_pure_black">Good on OLED screens</string>
     <string name="title_edit_adjust_presets">Adjust Buttons (Minutes)</string>
     <string name="title_edit_timer_presets">Timer Presets (Minutes)</string>
     <string name="label_button_n">Button %1$d</string>
@@ -207,7 +207,7 @@
     <string name="title_set_timeout">Set Timeout (min)</string>
     <string name="label_use_global_default">Use Default (%1$d min)</string>
     <string name="label_snooze_duration">Snooze Duration</string>
-    <string name="label_auto_stop">Auto-Stop</string>
+    <string name="label_auto_stop">Timeout</string>
     <string name="toast_alarm_stopped">Alarm stopped</string>
     <string name="toast_alarm_auto_stopped">Alarm timed out</string>
     <string name="toast_timer_stopped">Timer stopped</string>
@@ -226,4 +226,10 @@
     <string name="title_open_source_libraries_settings">Open Source Libraries</string>
     <string name="title_license_settings">License</string>
     <string name="adjust_group_time">Adjust next ringing time for all alarms in group</string>
+    <string name="alarmlist_empty">Empty</string>
+    <string name="edit_group">Edit Group</string>
+    <string name="desc_expand">Expand</string>
+    <string name="next_time_group">Next: %1$s</string>
+    <string name="snoozed_for_notif">Snoozed for %2$s min</string>
+    <string name="default_tts_timer_done">Timer Done</string>
 </resources>
