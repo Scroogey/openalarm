@@ -10,6 +10,7 @@ import android.content.pm.ServiceInfo
 import android.media.*
 import android.os.*
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
 import androidx.compose.foundation.lazy.layout.PrefetchScheduler
 import androidx.core.net.toUri
@@ -64,11 +65,13 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     private var currentType: String = "NONE"
     private var originalSystemVolume: Int? = null
     private var targetSliderValue: Float = 1.0f
+    private var isDucked: Boolean = false
     private var wakeLock: PowerManager.WakeLock? = null
 
     // Coroutines & Jobs
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var fadeJob: Job? = null
+    private var duckRestoreJob: Job? = null
 
     // MAP of Timeouts
     private val timeoutJobs = mutableMapOf<Int, Job>()
@@ -380,10 +383,8 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             // Stop current ringing
             stopCurrentRinging(false, true)
 
-            // Trigger status & notification refresh
+            // Trigger status & notification
             StatusHub.trigger(StatusEvent.Snoozed(alarm.id, "ALARM", snoozeTime))
-            NotificationRenderer.refreshAll(this)
-            
             Toast.makeText(
                 this,
                 getString(R.string.notif_snoozed_for, snoozeMins),
@@ -604,6 +605,26 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         }
     }
 
+    private fun lowerVolume() {
+        serviceScope.launch {
+            isDucked = true
+            duckRestoreJob?.cancel()
+            val duckedVol = perceptualVolume(targetSliderValue * 0.4f)
+            mediaPlayer?.setVolume(duckedVol, duckedVol)
+            logger.d(TAG, "Volume ducked for TTS")
+        }
+    }
+
+    private fun restoreVolume() {
+        serviceScope.launch {
+            isDucked = false
+            duckRestoreJob?.cancel()
+            val normalVol = perceptualVolume(targetSliderValue)
+            mediaPlayer?.setVolume(normalVol, normalVol)
+            logger.d(TAG, "Volume restored after TTS")
+        }
+    }
+
     // returns: perceptually linear loudness
     private fun perceptualVolume(slider: Float): Float {
         val clamped = slider.coerceIn(0f, 1f)
@@ -669,6 +690,8 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
         fadeJob?.cancel()
         ttsJob?.cancel()
+        duckRestoreJob?.cancel()
+        isDucked = false
     }
 
     override fun onDestroy() {
@@ -695,6 +718,19 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
                 tts?.setAudioAttributes(attrs)
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {
+                        lowerVolume()
+                        // Safety timeout to restore volume if TTS hangs
+                        duckRestoreJob?.cancel()
+                        duckRestoreJob = serviceScope.launch {
+                            delay(20000)
+                            if (isDucked) restoreVolume()
+                        }
+                    }
+                    override fun onDone(utteranceId: String?) { restoreVolume() }
+                    override fun onError(utteranceId: String?) { restoreVolume() }
+                })
                 isTtsReady = true
             }
         } else {
