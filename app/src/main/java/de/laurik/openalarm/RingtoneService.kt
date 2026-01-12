@@ -163,10 +163,10 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         if (currentRingingId == newId) return
         if (InternalDataStore.interruptedItems.any { it.id == newId }) return
 
-        // 1. SCHEDULE TIMEOUT
+        // SCHEDULE TIMEOUT
         scheduleTimeout(newId, newType)
 
-        // 2. DECIDE STATE
+        // DECIDE STATE
         if (currentRingingId != -1) {
             logger.d(TAG, "Already ringing $currentRingingId. Queueing $newId")
             val item = InterruptedItem(id = newId, type = newType, label = label, timestamp = triggerTime)
@@ -185,6 +185,21 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         // Force stop Timer Service to remove duplicate "Running" notification
         stopService(Intent(this, TimerRunningService::class.java))
 
+        // Remove the silent ringing notification if it exists (for queued alarms)
+        val nm = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
+        nm.cancel(id)
+
+        // Update the foreground service notification
+        val notification = NotificationRenderer.buildRingingNotification(
+            this, id, type, label, triggerTime
+        )
+        if (Build.VERSION.SDK_INT >= 29) {
+            startForeground(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            startForeground(id, notification)
+        }
+
+        // Refresh other notifications (timers, snooze, next alarm)
         NotificationRenderer.refreshAll(this)
 
         // Audio
@@ -206,7 +221,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
     // --- TIMEOUT LOGIC ---
 
-    private fun scheduleTimeout(id: Int, type: String) {
+    private fun scheduleTimeout(id: Int, type: String, triggerTime: Long = System.currentTimeMillis()) {
         timeoutJobs[id]?.cancel()
 
         val durationMin = if (type == "ALARM") {
@@ -214,14 +229,24 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         } else {
             SettingsRepository.getInstance(this).defaultTimerAutoStop.value
         }
-        val ms = durationMin * 60 * 1000L
 
-        val job = serviceScope.launch {
-            delay(ms)
+        // Calculate timeout from the ORIGINAL trigger time, not current time
+        val timeoutAt = triggerTime + (durationMin * 60 * 1000L)
+        val delayMs = timeoutAt - System.currentTimeMillis()
+
+        // Only schedule if timeout is in the future
+        if (delayMs > 0) {
+            val job = serviceScope.launch {
+                delay(delayMs)
+                handleTimeoutTriggered(id, type)
+            }
+            timeoutJobs[id] = job
+            logger.d(TAG, "Scheduled timeout for $id ($type) in ${delayMs/1000}s (${durationMin}m from trigger time)")
+        } else {
+            logger.w(TAG, "Timeout for $id already passed (trigger was ${-delayMs/1000}s ago)")
+            // Timeout already passed - handle immediately
             handleTimeoutTriggered(id, type)
         }
-        timeoutJobs[id] = job
-        logger.d(TAG, "Scheduled timeout for $id ($type) in ${durationMin}m")
     }
 
     private fun handleTimeoutTriggered(id: Int, type: String) {
@@ -269,6 +294,8 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                     handleMissedAlarm(alarm, id)
                 }
             }
+        } else {
+            logger.d(TAG, "Timeout for $id but not in queue (already ringing or stopped)")
         }
     }
 
@@ -319,6 +346,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         val id = currentRingingId
         val type = currentType
 
+        // Cancel and remove the timeout for this alarm
         timeoutJobs[id]?.cancel()
         timeoutJobs.remove(id)
 
@@ -334,10 +362,20 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         } else if (type == "TIMER") {
             AlarmRepository.removeTimer(this, id)
         }
+
         if (!isSnoozed) {
             StatusHub.trigger(StatusEvent.Stopped(id, type))
         }
+
         stopMedia()
+
+        // Clear current ringing state BEFORE checking queue
+        currentRingingId = -1
+        currentType = "NONE"
+        AlarmRepository.setCurrentRingingId(-1)
+
+        // Stop foreground service
+        stopForeground(true)
 
         // Restart TimerRunningService if active timers remain
         if (AlarmRepository.activeTimers.isNotEmpty()) {
@@ -345,14 +383,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(tIntent) else startService(tIntent)
         }
 
-        // Clear current ringing state
-        currentRingingId = -1
-        currentType = "NONE"
-
-        // Stop foreground service
-        stopForeground(true)
-
-        // Check if there are any interrupted items
+        // Check queue
         if (InternalDataStore.interruptedItems.isNotEmpty()) {
             checkQueueAndResume()
         } else {
@@ -447,7 +478,6 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 if (itemExists) {
                     logger.d(TAG, "Resuming interrupted item: ID=${nextItem.id}, Type=${nextItem.type}")
 
-                    // Check if this item is already ringing
                     if (nextItem.id == currentRingingId) {
                         logger.w(TAG, "Trying to resume item that's already ringing: ID=${nextItem.id}")
                         checkQueueAndResume()
@@ -457,7 +487,10 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                     startRingingSession(nextItem.id, nextItem.type, nextItem.label, nextItem.timestamp)
                 } else {
                     logger.d(TAG, "Interrupted item no longer exists: ID=${nextItem.id}, Type=${nextItem.type}")
-                    // Item doesn't exist anymore, check for more items
+                    // Cancel its timeout since it doesn't exist
+                    timeoutJobs[nextItem.id]?.cancel()
+                    timeoutJobs.remove(nextItem.id)
+                    // Check for more items
                     checkQueueAndResume()
                 }
             } else {
@@ -465,7 +498,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 stopSelf()
             }
         } catch (e: Exception) {
-            logger.e(TAG, "Error in checkStackAndResume", e)
+            logger.e(TAG, "Error in checkQueueAndResume", e)
             stopSelf()
         }
     }
