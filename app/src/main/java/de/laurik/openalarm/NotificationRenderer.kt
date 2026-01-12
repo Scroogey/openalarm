@@ -453,14 +453,24 @@ object NotificationRenderer {
 
             val cal = Calendar.getInstance().apply { timeInMillis = target }
             val timeStr = String.format(Locale.getDefault(), "%02d:%02d", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE))
-            val diffMs = target - now
-            val diffMin = (diffMs / 60000) + 1
-            val label = if (snoozedAlarm.label.isNotEmpty()) "${snoozedAlarm.label} (${context.getString(R.string.notif_snoozed_for, diffMin)})" else context.getString(R.string.notif_snoozed_for, diffMin)
+            
+            val title = if (snoozedAlarm.label.isNotEmpty()) {
+                snoozedAlarm.label
+            } else {
+                context.getString(R.string.action_snooze)
+            }
 
             val note = NotificationCompat.Builder(context, "STATUS_CHANNEL_ID")
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                .setContentTitle(label)
+                .setContentTitle(title)
                 .setContentText(context.getString(R.string.notif_ringing_at, timeStr))
+                .setWhen(target)
+                .setUsesChronometer(true)
+                .apply {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        setChronometerCountDown(true)
+                    }
+                }
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setColorized(true).setColor(AlarmRepository.NOTIF_COLOR)

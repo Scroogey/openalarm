@@ -26,7 +26,6 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
     companion object {
         private const val TAG = "RingtoneService"
-        private const val RINGING_NOTIF_ID = 69999
     }
 
     // Media & Hardware
@@ -35,7 +34,25 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     private var audioManager: AudioManager? = null
 
     // Audio Focus
-    private val focusListener = AudioManager.OnAudioFocusChangeListener { _ -> }
+    private val focusListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                // Permanent loss (call, another alarm app, etc.)
+                stopCurrentRinging(isTimeout = false, isSnoozed = false)
+            }
+
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                // Temporary (assistant, notification)
+                mediaPlayer?.pause()
+            }
+
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                // Resume if we were paused
+                mediaPlayer?.start()
+            }
+        }
+    }
 
     // TTS
     private var tts: TextToSpeech? = null
@@ -81,11 +98,14 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 val label = intent.getStringExtra("ALARM_LABEL") ?: ""
                 val triggerTime = intent.getLongExtra("TRIGGER_TIME", System.currentTimeMillis())
 
-                val notification = NotificationRenderer.buildRingingNotification(this, id, type, label, triggerTime)
+                val notification = NotificationRenderer.buildRingingNotification(
+                    this, id, type, label, triggerTime
+                )
+
                 if (Build.VERSION.SDK_INT >= 29) {
-                    startForeground(RINGING_NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+                    startForeground(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
                 } else {
-                    startForeground(RINGING_NOTIF_ID, notification)
+                    startForeground(id, notification)
                 }
             }
         }
@@ -159,11 +179,6 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         currentType = type
         AlarmRepository.setCurrentRingingId(id)
 
-        // Notification & UI
-        val notification = NotificationRenderer.buildRingingNotification(this, id, type, label, triggerTime)
-        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(RINGING_NOTIF_ID, notification)
-
         // Force stop Timer Service to remove duplicate "Running" notification
         stopService(Intent(this, TimerRunningService::class.java))
 
@@ -218,14 +233,14 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 if (alarm.isSnoozeEnabled &&
                     (alarm.maxSnoozes == null || alarm.currentSnoozeCount < (alarm.maxSnoozes ?: Int.MAX_VALUE))) {
                     // Auto-Snooze the current ringing alarm
-                    handleAutoSnooze(alarm)
+                    handleSnooze(alarm)
                 } else {
                     // Actually stop the alarm
-                    stopCurrentRinging(isTimeout = true)
+                    stopCurrentRinging(true, false)
                 }
             } else {
                 // For timers or if alarm is null
-                stopCurrentRinging(isTimeout = true)
+                stopCurrentRinging(true, false)
             }
             return
         }
@@ -246,7 +261,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 if (alarm.isSnoozeEnabled &&
                     (alarm.maxSnoozes == null || alarm.currentSnoozeCount < (alarm.maxSnoozes ?: Int.MAX_VALUE))) {
                     // Auto-Snooze background alarm
-                    handleAutoSnooze(alarm)
+                    handleSnooze(alarm)
                 } else {
                     handleMissedAlarm(alarm, id)
                 }
@@ -292,10 +307,10 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         }
 
         // Stop current
-        stopCurrentRinging(isTimeout = false)
+        stopCurrentRinging(false, false)
     }
 
-    private fun stopCurrentRinging(isTimeout: Boolean) {
+    private fun stopCurrentRinging(isTimeout: Boolean, isSnoozed: Boolean) {
         if (currentRingingId == -1) return
 
         val id = currentRingingId
@@ -306,7 +321,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
         if (type == "ALARM") {
             val alarm = AlarmRepository.getAlarm(id)
-            if (alarm != null) {
+            if (alarm != null && !isSnoozed) {
                 AlarmScheduler(this).rescheduleCurrentActive(alarm, this)
 
                 if (isTimeout) {
@@ -316,8 +331,9 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         } else if (type == "TIMER") {
             AlarmRepository.removeTimer(this, id)
         }
-
-        StatusHub.trigger(StatusEvent.Stopped(id, type))
+        if (!isSnoozed) {
+            StatusHub.trigger(StatusEvent.Stopped(id, type))
+        }
         stopMedia()
 
         // Restart TimerRunningService if active timers remain
@@ -337,85 +353,53 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         if (InternalDataStore.interruptedItems.isNotEmpty()) {
             checkQueueAndResume()
         } else {
-            // No more alarms to ring, stop the service
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
             stopSelf()
         }
     }
 
     // --- SNOOZE LOGIC ---
-
-    private fun handleSnoozeAction(intent: Intent) {
-        if (currentRingingId == -1) return
-        val id = currentRingingId
-        val alarm = AlarmRepository.getAlarm(id) ?: return
-
-        timeoutJobs[id]?.cancel()
-        timeoutJobs.remove(id)
-
-        val customMins = if (intent.action == "SNOOZE_CUSTOM") intent.getIntExtra("MINUTES", 10) else null
-        val snoozeMins = customMins ?: alarm.snoozeDuration ?: SettingsRepository.getInstance(this).defaultSnooze.value
-        val snoozeTime = System.currentTimeMillis() + (snoozeMins * 60 * 1000)
-
-        val updated = alarm.copy(snoozeUntil = snoozeTime, currentSnoozeCount = alarm.currentSnoozeCount + 1)
-        AlarmRepository.updateAlarm(this, updated)
-
-        val group = AlarmRepository.groups.find { it.id == alarm.groupId }
-        AlarmScheduler(this).schedule(updated, group?.offsetMinutes ?: 0)
-
-        Toast.makeText(this, this.getString(R.string.snoozed_for_notif, snoozeMins), Toast.LENGTH_SHORT).show()
-        StatusHub.trigger(StatusEvent.Snoozed(id, "ALARM", snoozeTime))
-
-        stopMedia()
-        if (InternalDataStore.interruptedItems.isNotEmpty()) {
-            checkQueueAndResume()
-        } else {
-            // No more alarms to ring, stop the service
-            stopSelf()
-        }
-    }
-
-    // TODO: merge handleAutoSnooze and handleSnoozeAction?
-
-    private fun handleAutoSnooze(alarm: AlarmItem) {
+    private fun handleSnooze(alarm: AlarmItem, customMinutes: Int? = null) {
         try {
-            logger.d(TAG, "Auto-snoozing alarm: ID=${alarm.id}")
+            val snoozeMins = customMinutes ?: alarm.snoozeDuration ?: SettingsRepository.getInstance(this).defaultSnooze.value
+            val snoozeTime = System.currentTimeMillis() + snoozeMins * 60 * 1000
 
-            val snoozeMins = alarm.snoozeDuration ?: SettingsRepository.getInstance(this).defaultSnooze.value
-            val snoozeTime = System.currentTimeMillis() + (snoozeMins * 60 * 1000)
-
-            // Update the alarm with snooze time
+            // Update alarm with snooze info
             val updated = alarm.copy(
                 snoozeUntil = snoozeTime,
                 currentSnoozeCount = alarm.currentSnoozeCount + 1
             )
             AlarmRepository.updateAlarm(this, updated)
 
-            // Schedule ONLY the snooze time, not the next normal occurrence
+            // Schedule ONLY the snooze time
             val scheduler = AlarmScheduler(this)
             scheduler.scheduleExact(snoozeTime, alarm.id, "ALARM", alarm.label)
 
-            // Stop the current alarm
-            stopMedia()
+            // Stop current ringing
+            stopCurrentRinging(false, true)
 
-            // Clear current ringing state
-            currentRingingId = -1
-            currentType = "NONE"
-
-            // Stop foreground service
-            stopForeground(true)
-
+            // Trigger status & notification refresh
             StatusHub.trigger(StatusEvent.Snoozed(alarm.id, "ALARM", snoozeTime))
-
-            // Check if there are any interrupted items
-            if (InternalDataStore.interruptedItems.isNotEmpty()) {
-                checkQueueAndResume()
-            } else {
-                // No more alarms to ring, stop the service
-                stopSelf()
-            }
+            NotificationRenderer.refreshAll(this)
+            
+            Toast.makeText(
+                this,
+                getString(R.string.notif_snoozed_for, snoozeMins),
+                Toast.LENGTH_SHORT
+            ).show()
         } catch (e: Exception) {
-            logger.e(TAG, "Error in handleAutoSnooze", e)
+            logger.e(TAG, "Error while snoozing alarm ID=${alarm.id}", e)
         }
+    }
+
+    private fun handleSnoozeAction(intent: Intent) {
+        if (currentRingingId == -1) return
+        val alarm = AlarmRepository.getAlarm(currentRingingId) ?: return
+
+        val customMins = if (intent.action == "SNOOZE_CUSTOM") intent.getIntExtra("MINUTES", 10) else null
+        handleSnooze(alarm, customMins)
     }
 
     private fun handleAddTimeAction(intent: Intent) {
@@ -541,14 +525,14 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         // Focus
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val attr = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build()
-            val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+            val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                 .setAudioAttributes(attr)
                 .setOnAudioFocusChangeListener(focusListener)
                 .build()
             audioManager?.requestAudioFocus(req)
         } else {
             @Suppress("DEPRECATION")
-            audioManager?.requestAudioFocus(focusListener, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+            audioManager?.requestAudioFocus(focusListener, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN)
         }
 
         // MediaPlayer
@@ -662,11 +646,14 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         tts?.speak(text, TextToSpeech.QUEUE_ADD, params, "ID_${System.currentTimeMillis()}")
     }
 
+    private fun foregroundId() = currentRingingId
+
     private fun stopMedia() {
-        try { mediaPlayer?.stop(); mediaPlayer?.release() } catch (e: Exception) {}
+        mediaPlayer?.stop(); mediaPlayer?.release()
         mediaPlayer = null
-        try { vibrator?.cancel() } catch (e: Exception) {}
-        try { tts?.stop() } catch(e: Exception) {}
+        audioManager?.abandonAudioFocus(focusListener)
+        vibrator?.cancel()
+        tts?.stop()
 
         // Restore system volume
         try {
@@ -690,6 +677,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         serviceScope.cancel()
         AlarmRepository.setCurrentRingingId(-1)
         if (wakeLock?.isHeld == true) wakeLock?.release()
+        serviceScope.cancel()
         super.onDestroy()
     }
 
