@@ -20,10 +20,11 @@ object NotificationRenderer {
     fun refreshAll(context: Context) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val now = System.currentTimeMillis()
+        val currentRingingId = AlarmRepository.currentRingingId
 
-        // 1. UPDATE TIMERS
+        // 1. UPDATE TIMERS (but not if they're currently ringing)
         AlarmRepository.activeTimers.forEach { timer ->
-            if (timer.id != AlarmRepository.currentRingingId) {
+            if (timer.id != currentRingingId) {
                 val note = createNotification(context, timer.id, "TIMER", isRinging = false, timerOverride = timer)
                 nm.notify(timer.id, note)
             } else {
@@ -31,9 +32,11 @@ object NotificationRenderer {
             }
         }
 
-        // 1.5 UPDATE INTERRUPTED ALARMS (Silent Ringing)
+        // 1.5 UPDATE INTERRUPTED ALARMS (Silent Ringing) - but not if they're currently ringing
         InternalDataStore.interruptedItems.forEach { item ->
-             showSilentRinging(context, item.id, item.type, item.label)
+            if (item.id != currentRingingId) {
+                showSilentRinging(context, item.id, item.type, item.label)
+            }
         }
 
         // 2. SNOOZE
@@ -169,6 +172,9 @@ object NotificationRenderer {
     }
 
     fun showSilentRinging(context: Context, id: Int, type: String, label: String = "") {
+        if (id == AlarmRepository.currentRingingId || id == -1) {
+            return
+        }
         val note = createNotification(context, id, type, isRinging = false, labelOverride = label)
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(id, note)
@@ -239,16 +245,6 @@ object NotificationRenderer {
                     baseTime = SystemClock.elapsedRealtime() + (timer.endTime - now)
                 )
             }
-            isRinging -> {
-                NotifConfig(
-                    layoutId = R.layout.notification_call_style,
-                    color = AlarmRepository.NOTIF_COLOR,
-                    title = context.getString(R.string.notif_wake_up),
-                    channelId = "ALARM_CHANNEL_ID",
-                    isChronometerCountDown = false,
-                    baseTime = SystemClock.elapsedRealtime()
-                )
-            }
             type == "ALARM" -> {
                 // Backgrounded but technically "ringing" (Interrupted)
                 val alarm = AlarmRepository.getAlarm(id)
@@ -260,7 +256,7 @@ object NotificationRenderer {
                 NotifConfig(
                     layoutId = R.layout.notification_call_style,
                     color = AlarmRepository.NOTIF_COLOR,
-                    title = if (label.isNotBlank()) context.getString(R.string.notif_alarm_silent_ringing, label) else context.getString(R.string.notif_wake_up),
+                    title = if (label.isNotBlank()) context.getString(R.string.notif_alarm_silent_ringing, label) else context.getString(R.string.notif_alarm_silent_ringing_no_label),
                     channelId = "STATUS_CHANNEL_ID", // High priority but silent channel
                     isChronometerCountDown = false,
                     baseTime = SystemClock.elapsedRealtime() - durationRinging

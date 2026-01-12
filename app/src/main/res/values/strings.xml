@@ -231,4 +231,5 @@
     <string name="desc_expand">Expand</string>
     <string name="next_time_group">Next: %1$s</string>
     <string name="default_tts_timer_done">Timer Done</string>
+    <string name="notif_alarm_silent_ringing_no_label">Alarm is ringing (silent)</string>
 </resources>
