@@ -33,6 +33,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
     private var audioManager: AudioManager? = null
+    private var audioFocusRequest: AudioFocusRequest? = null
 
     // Audio Focus
     private val focusListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
@@ -421,6 +422,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 getString(R.string.notif_snoozed_for, snoozeMins),
                 Toast.LENGTH_SHORT
             ).show()
+            NotificationRenderer.refreshAll(this)
         } catch (e: Exception) {
             logger.e(TAG, "Error while snoozing alarm ID=${alarm.id}", e)
         }
@@ -530,7 +532,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             val s = SettingsRepository.getInstance(this)
             s.timerRingtone.value?.let { uri = it.toUri() }
             volume = s.timerVolume.value
-            applyMaxSystemVolume = true // Timers always use the volume slider setting
+            applyMaxSystemVolume = true
             vibrate = s.timerVibration.value
             if (s.timerTtsEnabled.value) {
                 ttsMode = TtsMode.ONCE
@@ -556,23 +558,44 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         // Store the target volume for later use
         targetSliderValue = volume
 
-        // Focus
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val attr = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build()
-            val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+        // Request Audio Focus BEFORE creating MediaPlayer
+        val focusResult = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val attr = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+            audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
                 .setAudioAttributes(attr)
                 .setOnAudioFocusChangeListener(focusListener)
+                .setWillPauseWhenDucked(false)
                 .build()
-            audioManager?.requestAudioFocus(req)
+            audioManager?.requestAudioFocus(audioFocusRequest!!)
         } else {
             @Suppress("DEPRECATION")
-            audioManager?.requestAudioFocus(focusListener, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN)
+            audioManager?.requestAudioFocus(
+                focusListener,
+                AudioManager.STREAM_ALARM,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+            )
+        }
+
+        if (focusResult != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            logger.w(TAG, "Audio focus not granted: $focusResult")
+            // Continue anyway - alarms should ring even if focus isn't granted
+        } else {
+            logger.d(TAG, "Audio focus granted successfully")
         }
 
         // MediaPlayer
         try {
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(applicationContext, uri)
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                )
                 setAudioStreamType(AudioManager.STREAM_ALARM)
                 isLooping = true
 
@@ -703,9 +726,23 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     private fun foregroundId() = currentRingingId
 
     private fun stopMedia() {
-        mediaPlayer?.stop(); mediaPlayer?.release()
+        mediaPlayer?.stop()
+        mediaPlayer?.release()
         mediaPlayer = null
-        audioManager?.abandonAudioFocus(focusListener)
+
+        // Properly abandon audio focus
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let {
+                audioManager?.abandonAudioFocusRequest(it)
+                logger.d(TAG, "Audio focus abandoned (API 26+)")
+            }
+            audioFocusRequest = null
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager?.abandonAudioFocus(focusListener)
+            logger.d(TAG, "Audio focus abandoned (legacy)")
+        }
+
         vibrator?.cancel()
         tts?.stop()
 
@@ -715,8 +752,8 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 logger.d(TAG, "Restoring system volume to $it")
                 audioManager?.setStreamVolume(AudioManager.STREAM_ALARM, it, 0)
             }
-        } catch (e: Exception) { 
-            logger.e(TAG, "Failed to restore system volume", e) 
+        } catch (e: Exception) {
+            logger.e(TAG, "Failed to restore system volume", e)
         } finally {
             originalSystemVolume = null
         }
