@@ -41,9 +41,6 @@ class AlarmScheduler(private val context: Context) {
 
             // Clamp the adjustment to the maximum allowed value
             val clampedAdjustment = clampAdjustment(adjustmentMinutes)
-            if (clampedAdjustment != adjustmentMinutes) {
-                logger.w(TAG, "Adjustment of $adjustmentMinutes minutes clamped to $clampedAdjustment minutes")
-            }
 
             val now = System.currentTimeMillis()
 
@@ -73,10 +70,10 @@ class AlarmScheduler(private val context: Context) {
                 triggerTime
             }
 
-            logger.d(TAG, "Calculated trigger time: $finalTriggerTime for alarm ID=${alarm.id} " +
-                    "(base: $triggerTime, adjustment: ${clampedAdjustment}m)")
+            val finalTriggerDate = SimpleDateFormat(did HH:mm).format(Date(finalTriggerTime))
+            logger.d(TAG, "Calculated trigger time: $finalTriggerDate for alarm ID=${alarm.id}")
 
-            // Safety: Only return if the calculated time is largely in the past
+            // Only return if the calculated time is largely in the past
             if (finalTriggerTime <= (now - 60_000)) {
                 logger.w(TAG, "Trigger time is in the past, not scheduling alarm ID=${alarm.id}")
                 return
@@ -179,7 +176,6 @@ class AlarmScheduler(private val context: Context) {
 
             // 1. If disabled or no alarm, clear it immediately
             if (nextAlarm == null || !settings.notifyBeforeEnabled.value) {
-                logger.d(TAG, "Notification update: No alarm or notifications disabled")
                 NotificationRenderer.refreshAll(context)
                 // Cancel any pending lead-time trigger
                 val intent = Intent(context, AlarmReceiver::class.java).apply { action = "UPDATE_NOTIFICATIONS_Background" }
@@ -210,15 +206,12 @@ class AlarmScheduler(private val context: Context) {
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         if (alarmManager.canScheduleExactAlarms()) {
-                            logger.d(TAG, "Using exact alarm scheduling")
                             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, showNotificationTime, pi)
                         } else {
-                            logger.w(TAG, "Exact alarm permission missing, using fallback")
                             // Fallback to non-exact if permission missing
                             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, showNotificationTime, pi)
                         }
                     } else {
-                        logger.d(TAG, "Using exact alarm scheduling (pre-Android 12)")
                         alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, showNotificationTime, pi)
                     }
                 } catch (e: SecurityException) {
