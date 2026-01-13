@@ -230,6 +230,8 @@
     <string name="edit_group">Edit Group</string>
     <string name="desc_expand">Expand</string>
     <string name="next_time_group">Next: %1$s</string>
-    <string name="snoozed_for_notif">Snoozed for %2$s min</string>
     <string name="default_tts_timer_done">Timer Done</string>
+    <string name="notif_alarm_silent_ringing_no_label">Alarm is ringing (silent)</string>
+    <string name="notif_snoozed_with_label">Alarm %1$s snoozed</string>
+    <string name="notif_snoozed">Alarm snoozed</string>
 </resources>

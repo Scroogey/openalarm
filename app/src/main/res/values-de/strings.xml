@@ -101,7 +101,7 @@
     <string name="action_create_new_group">Neue Gruppe erstellen</string>
     <string name="action_add_to_group">+ Wecker zu Gruppe hinzufügen</string>
     <string name="title_settings">Einstellungen</string>
-    <string name="fmt_alarm_missed">Wecker %1$s um %\"$s verpasst</string>
+    <string name="fmt_alarm_missed">Wecker %1$s um %2$s verpasst</string>
     <string name="title_set_time">Zeit setzen</string>
     <string name="desc_done">Fertig</string>
     <string name="action_done_caps">FERTIG</string>
@@ -157,6 +157,5 @@
     <string name="edit_group">Gruppe bearbeiten</string>
     <string name="desc_expand">Erweitern</string>
     <string name="next_time_group">Nächster: %1$s</string>
-    <string name="snoozed_for_notif">Schlummert für %2$s Min</string>
     <string name="default_tts_timer_done">Timer abgelaufen</string>
 </resources>

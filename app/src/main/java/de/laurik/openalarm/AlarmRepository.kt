@@ -303,5 +303,39 @@ object AlarmRepository {
 
         return if (itemExists) item else null
     }
+
+    fun cleanupStaleInterruptedItems(context: Context) {
+        val now = System.currentTimeMillis()
+        val maxAge = 15 * 60 * 1000L // 15 minutes
+
+        val staleItems = InternalDataStore.interruptedItems.filter { item ->
+            val age = now - item.timestamp
+            age > maxAge
+        }
+
+        if (staleItems.isNotEmpty()) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+
+            // Remove from memory and cancel notifications
+            staleItems.forEach { item ->
+                nm.cancel(item.id)
+            }
+
+            InternalDataStore.interruptedItems.removeAll(staleItems)
+
+            // Remove from database
+            scope.launch {
+                val db = AppDatabase.getDatabase(context).alarmDao()
+                staleItems.forEach { item ->
+                    try {
+                        db.deleteInterrupted(item)
+                    } catch (e: Exception) {
+                        Log.e("AlarmRepository", "Error deleting stale interrupted item", e)
+                    }
+                }
+            }
+        }
+    }
+
     fun setCurrentRingingId(id: Int) { InternalDataStore.currentRingingId = id }
 }

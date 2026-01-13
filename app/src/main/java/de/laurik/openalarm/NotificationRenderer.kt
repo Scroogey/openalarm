@@ -20,33 +20,38 @@ object NotificationRenderer {
     fun refreshAll(context: Context) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val now = System.currentTimeMillis()
+        val currentRingingId = AlarmRepository.currentRingingId
 
-        // 1. UPDATE TIMERS
+        // Clean stale items before showing anything
+        AlarmRepository.cleanupStaleInterruptedItems(context)
+
+        // 1. TIMERS (skip if currently ringing)
         AlarmRepository.activeTimers.forEach { timer ->
-            if (timer.id != AlarmRepository.currentRingingId) {
+            if (timer.id != currentRingingId) {
                 val note = createNotification(context, timer.id, "TIMER", isRinging = false, timerOverride = timer)
                 nm.notify(timer.id, note)
-            } else {
-                nm.cancel(timer.id)
             }
         }
 
-        // 1.5 UPDATE INTERRUPTED ALARMS (Silent Ringing)
+        // 2. INTERRUPTED ALARMS (skip if currently ringing, only show recent ones)
+        val maxAge = 20 * 60 * 1000L
         InternalDataStore.interruptedItems.forEach { item ->
-             showSilentRinging(context, item.id, item.type, item.label)
+            val age = now - item.timestamp
+            if (item.id != currentRingingId && age < maxAge) {
+                showSilentRinging(context, item.id, item.type, item.label)
+            }
         }
 
-        // 2. SNOOZE
+        // 3. SNOOZE
         val snoozedAlarm = AlarmRepository.groups.flatMap { it.alarms }
             .filter { it.snoozeUntil != null && it.snoozeUntil!! > now }
             .minByOrNull { it.snoozeUntil!! }
 
         updateSnooze(context, nm, now, snoozedAlarm)
 
-        // 3. NEXT ALARM
+        // 4. NEXT ALARM
         updateNextAlarm(context, nm, now, isSnoozing = snoozedAlarm != null)
     }
-
     fun buildRingingNotification(context: Context, id: Int, type: String, label: String = "", triggerTime: Long): Notification {
         val channelId = "ALARM_CHANNEL_ID"
         val now = System.currentTimeMillis()
@@ -169,6 +174,9 @@ object NotificationRenderer {
     }
 
     fun showSilentRinging(context: Context, id: Int, type: String, label: String = "") {
+        if (id == AlarmRepository.currentRingingId || id == -1) {
+            return
+        }
         val note = createNotification(context, id, type, isRinging = false, labelOverride = label)
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(id, note)
@@ -239,16 +247,6 @@ object NotificationRenderer {
                     baseTime = SystemClock.elapsedRealtime() + (timer.endTime - now)
                 )
             }
-            isRinging -> {
-                NotifConfig(
-                    layoutId = R.layout.notification_call_style,
-                    color = AlarmRepository.NOTIF_COLOR,
-                    title = context.getString(R.string.notif_wake_up),
-                    channelId = "ALARM_CHANNEL_ID",
-                    isChronometerCountDown = false,
-                    baseTime = SystemClock.elapsedRealtime()
-                )
-            }
             type == "ALARM" -> {
                 // Backgrounded but technically "ringing" (Interrupted)
                 val alarm = AlarmRepository.getAlarm(id)
@@ -260,7 +258,7 @@ object NotificationRenderer {
                 NotifConfig(
                     layoutId = R.layout.notification_call_style,
                     color = AlarmRepository.NOTIF_COLOR,
-                    title = if (label.isNotBlank()) context.getString(R.string.notif_alarm_silent_ringing, label) else context.getString(R.string.notif_wake_up),
+                    title = if (label.isNotBlank()) context.getString(R.string.notif_alarm_silent_ringing, label) else context.getString(R.string.notif_alarm_silent_ringing_no_label),
                     channelId = "STATUS_CHANNEL_ID", // High priority but silent channel
                     isChronometerCountDown = false,
                     baseTime = SystemClock.elapsedRealtime() - durationRinging
@@ -376,17 +374,17 @@ object NotificationRenderer {
 
         if (config.channelId == "ALARM_CHANNEL_ID") {
             builder.setPriority(NotificationCompat.PRIORITY_MAX)
-            if (actuallyRinging) {
-                builder.setFullScreenIntent(fullScreenPending, true)
-                // FOREGROUND_SERVICE_IMMEDIATE is only for API 31+, compat handles this or ignores it
-                if (Build.VERSION.SDK_INT >= 31) {
-                    builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-                }
-            }
         } else if (config.channelId == "ACTIVE_TIMER_CHANNEL_ID"){
             builder.setPriority(NotificationCompat.PRIORITY_HIGH)
         } else {
             builder.setPriority(NotificationCompat.PRIORITY_LOW)
+        }
+        if (actuallyRinging) {
+            builder.setFullScreenIntent(fullScreenPending, true)
+            // FOREGROUND_SERVICE_IMMEDIATE is only for API 31+, compat handles this or ignores it
+            if (Build.VERSION.SDK_INT >= 31) {
+                builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            }
         }
 
         return builder.build()
@@ -453,14 +451,24 @@ object NotificationRenderer {
 
             val cal = Calendar.getInstance().apply { timeInMillis = target }
             val timeStr = String.format(Locale.getDefault(), "%02d:%02d", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE))
-            val diffMs = target - now
-            val diffMin = (diffMs / 60000) + 1
-            val label = if (snoozedAlarm.label.isNotEmpty()) "${snoozedAlarm.label} (${context.getString(R.string.notif_snoozed_for, diffMin)})" else context.getString(R.string.notif_snoozed_for, diffMin)
+            
+            val title = if (snoozedAlarm.label.isNotEmpty()) {
+                context.getString(R.string.notif_snoozed_with_label, snoozedAlarm.label)
+            } else {
+                context.getString(R.string.notif_snoozed)
+            }
 
             val note = NotificationCompat.Builder(context, "STATUS_CHANNEL_ID")
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                .setContentTitle(label)
+                .setContentTitle(title)
                 .setContentText(context.getString(R.string.notif_ringing_at, timeStr))
+                .setWhen(target)
+                .setUsesChronometer(true)
+                .apply {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        setChronometerCountDown(true)
+                    }
+                }
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setColorized(true).setColor(AlarmRepository.NOTIF_COLOR)
