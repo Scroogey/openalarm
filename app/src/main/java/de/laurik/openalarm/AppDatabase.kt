@@ -108,7 +108,7 @@ interface AlarmDao {
 // 3. DATABASE INSTANCE
 @Database(
     entities = [AlarmGroupEntity::class, AlarmItem::class, TimerItem::class, InterruptedItem::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
