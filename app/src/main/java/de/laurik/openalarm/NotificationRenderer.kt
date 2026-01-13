@@ -451,9 +451,9 @@ object NotificationRenderer {
             val timeStr = String.format(Locale.getDefault(), "%02d:%02d", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE))
             
             val title = if (snoozedAlarm.label.isNotEmpty()) {
-                snoozedAlarm.label
+                context.getString(R.string.notif_snoozed_with_label, snoozedAlarm.label)
             } else {
-                context.getString(R.string.action_snooze)
+                context.getString(R.string.notif_snoozed)
             }
 
             val note = NotificationCompat.Builder(context, "STATUS_CHANNEL_ID")
