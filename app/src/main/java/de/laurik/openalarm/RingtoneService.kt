@@ -25,6 +25,8 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
     private val logger by lazy { AppLogger(applicationContext) }
 
+    private var screenWakeLock: PowerManager.WakeLock? = null
+
     companion object {
         private const val TAG = "RingtoneService"
     }
@@ -84,6 +86,8 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OpenAlarm::RingtoneWakeLock")
+        @Suppress("DEPRECATION")
+        screenWakeLock = powerManager.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP, "OpenAlarm::ScreenWake")
 
         // Clean up any stale interrupted items on service creation
         serviceScope.launch {
@@ -242,6 +246,14 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             putExtra("ALARM_LABEL", label)
             putExtra("START_TIME", triggerTime)
             data = "custom://$type/$id".toUri()
+        }
+        // Acquire a short screen wake lock to reliably wake the display (10s)
+        try {
+            screenWakeLock?.let {
+                if (!it.isHeld) it.acquire(10_000L)
+            }
+        } catch (e: Exception) {
+            logger.e(TAG, "Failed to acquire screen wake lock", e)
         }
         startActivity(fullScreenIntent)
 
@@ -662,7 +674,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                 .build()
-            audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+            audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                 .setAudioAttributes(attr)
                 .setOnAudioFocusChangeListener(focusListener)
                 .setWillPauseWhenDucked(false)
@@ -673,7 +685,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             audioManager?.requestAudioFocus(
                 focusListener,
                 AudioManager.STREAM_ALARM,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+                AudioManager.AUDIOFOCUS_GAIN
             )
         }
 
@@ -843,6 +855,14 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
         vibrator?.cancel()
         tts?.stop()
+
+        try {
+            screenWakeLock?.let {
+                if (it.isHeld) it.release()
+            }
+        } catch (e: Exception) {
+            logger.e(TAG, "Error releasing screen wake lock", e)
+        }
 
         // Restore system volume
         try {

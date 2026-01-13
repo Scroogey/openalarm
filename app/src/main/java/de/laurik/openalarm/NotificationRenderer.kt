@@ -374,17 +374,17 @@ object NotificationRenderer {
 
         if (config.channelId == "ALARM_CHANNEL_ID") {
             builder.setPriority(NotificationCompat.PRIORITY_MAX)
-            if (actuallyRinging) {
-                builder.setFullScreenIntent(fullScreenPending, true)
-                // FOREGROUND_SERVICE_IMMEDIATE is only for API 31+, compat handles this or ignores it
-                if (Build.VERSION.SDK_INT >= 31) {
-                    builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-                }
-            }
         } else if (config.channelId == "ACTIVE_TIMER_CHANNEL_ID"){
             builder.setPriority(NotificationCompat.PRIORITY_HIGH)
         } else {
             builder.setPriority(NotificationCompat.PRIORITY_LOW)
+        }
+        if (actuallyRinging) {
+            builder.setFullScreenIntent(fullScreenPending, true)
+            // FOREGROUND_SERVICE_IMMEDIATE is only for API 31+, compat handles this or ignores it
+            if (Build.VERSION.SDK_INT >= 31) {
+                builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            }
         }
 
         return builder.build()
