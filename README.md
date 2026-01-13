@@ -33,7 +33,7 @@ Planned features (in no particular order):
 - [ ] trash/restore bin for deleted alarms
 - [ ] add better deletion feature to faster delete (multiple) alarms
 # Disclaimer
-This project has been developed with the help of AI, mainly Google's Gemini 3 Pro Preview in AIStudio and Gemini 3 Flash in Antigravity, and this is my first real coding project. 
+This project has been developed with the help of AI, mainly Google's Gemini 3 Pro Preview in AIStudio and Gemini 3 Flash in Antigravity but also ChatGPT, Mistral and Claude, and this is my first real coding project. 
 So be **careful** when using this alarm app.
 If you miss an important meeting and loose 110k$ it is your own fault for relying on only this app to wake you up.
 I of course try my best to make this app reliable, but things differ from device to device and sometimes there's bugs that aren't so easy to find.
