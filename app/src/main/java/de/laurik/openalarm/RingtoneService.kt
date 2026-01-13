@@ -81,9 +81,15 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         super.onCreate()
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         tts = TextToSpeech(this, this)
-        
+
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OpenAlarm::RingtoneWakeLock")
+
+        // Clean up any stale interrupted items on service creation
+        serviceScope.launch {
+            AlarmRepository.ensureLoaded(applicationContext)
+            AlarmRepository.cleanupStaleInterruptedItems(applicationContext)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -148,28 +154,50 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
         if (newId == -1) return
 
-        // Validation: Check if alarm still exists
-        val alarmExists = if (newType == "ALARM") {
-            AlarmRepository.getAlarm(newId) != null
-        } else {
-            AlarmRepository.getTimer(newId) != null
-        }
+        val now = System.currentTimeMillis()
+        val age = now - triggerTime
 
-        if (!alarmExists) {
-            logger.w(TAG, "Ignoring start request for non-existent $newType with ID=$newId")
+        // Reject alarms older than 10 minutes
+        if (age > 10 * 60 * 1000L) {
+            logger.w(TAG, "Ignoring stale alarm: ID=$newId, Age=${age/1000}s")
             return
         }
 
+        // Validation: Check if exists and is enabled
+        if (newType == "ALARM") {
+            val alarm = AlarmRepository.getAlarm(newId)
+            if (alarm == null) {
+                logger.w(TAG, "Alarm $newId doesn't exist")
+                return
+            }
+            if (!alarm.isEnabled) {
+                logger.w(TAG, "Alarm $newId is disabled")
+                return
+            }
+        } else if (newType == "TIMER") {
+            if (AlarmRepository.getTimer(newId) == null) {
+                logger.w(TAG, "Timer $newId doesn't exist")
+                return
+            }
+        }
+
         // Deduplication
-        if (currentRingingId == newId) return
-        if (InternalDataStore.interruptedItems.any { it.id == newId }) return
+        if (currentRingingId == newId) {
+            logger.d(TAG, "Already ringing: $newId")
+            return
+        }
 
-        // SCHEDULE TIMEOUT
-        scheduleTimeout(newId, newType)
+        if (InternalDataStore.interruptedItems.any { it.id == newId }) {
+            logger.d(TAG, "Already queued: $newId")
+            return
+        }
 
-        // DECIDE STATE
+        // Schedule timeout based on trigger time
+        scheduleTimeout(newId, newType, triggerTime)
+
+        // Queue or start
         if (currentRingingId != -1) {
-            logger.d(TAG, "Already ringing $currentRingingId. Queueing $newId")
+            logger.d(TAG, "Queueing $newId (currently ringing $currentRingingId)")
             val item = InterruptedItem(id = newId, type = newType, label = label, timestamp = triggerTime)
             AlarmRepository.addInterruptedItem(this, item)
             NotificationRenderer.showSilentRinging(this, newId, newType, label)
@@ -276,10 +304,22 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
         StatusHub.trigger(StatusEvent.Timeout(id, type))
 
+        // Remove from interrupted queue
+        val removed = InternalDataStore.interruptedItems.removeAll { it.id == id }
+        if (removed) {
+            serviceScope.launch {
+                try {
+                    val item = InterruptedItem(id = id, type = "ALARM", label = "", timestamp = 0)
+                    AppDatabase.getDatabase(applicationContext).alarmDao().deleteInterrupted(item)
+                } catch (e: Exception) {
+                    logger.e(TAG, "Error removing from DB", e)
+                }
+            }
+        }
+
         // B: Background Timeout
         val queuedItemIndex = InternalDataStore.interruptedItems.indexOfFirst { it.id == id }
         if (queuedItemIndex != -1) {
-            val queuedItem = InternalDataStore.interruptedItems[queuedItemIndex]
             InternalDataStore.interruptedItems.removeAt(queuedItemIndex)
 
             val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
@@ -313,23 +353,34 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     private fun handleStopAction(intent: Intent) {
         val targetId = intent.getIntExtra("TARGET_ID", -1)
 
-        // Stop specific background ID
         if (targetId != -1 && targetId != currentRingingId) {
-            InternalDataStore.interruptedItems.removeAll { it.id == targetId }
+            logger.d(TAG, "Stopping background ID: $targetId")
+
+            // Remove from interrupted queue
+            val removed = InternalDataStore.interruptedItems.removeAll { it.id == targetId }
+            if (removed) {
+                serviceScope.launch {
+                    try {
+                        val item = InterruptedItem(id = targetId, type = "ALARM", label = "", timestamp = 0)
+                        AppDatabase.getDatabase(applicationContext).alarmDao().deleteInterrupted(item)
+                    } catch (e: Exception) {
+                        logger.e(TAG, "Error removing from DB", e)
+                    }
+                }
+            }
+
             timeoutJobs[targetId]?.cancel()
             timeoutJobs.remove(targetId)
+
             val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             nm.cancel(targetId)
 
-            // Cancel any pending intents for this ID
             val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
-            val intent = Intent(this, AlarmReceiver::class.java).apply {
+            val alarmIntent = Intent(this, AlarmReceiver::class.java).apply {
                 putExtra("ALARM_ID", targetId)
             }
             val pendingIntent = PendingIntent.getBroadcast(
-                this,
-                targetId,
-                intent,
+                this, targetId, alarmIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             alarmManager.cancel(pendingIntent)
@@ -337,7 +388,6 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             return
         }
 
-        // Stop current
         stopCurrentRinging(false, false)
     }
 
@@ -466,87 +516,89 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
     private fun checkQueueAndResume() {
         try {
-            // Clean up invalid items from queue first
+            // First, validate and clean up queue
+            val now = System.currentTimeMillis()
+            val maxAge = 20 * 60 * 1000L
+
             val invalidItems = InternalDataStore.interruptedItems.filter { item ->
+                val age = now - item.timestamp
+                val tooOld = age > maxAge
+
                 val exists = if (item.type == "TIMER") {
                     AlarmRepository.getTimer(item.id) != null
                 } else {
-                    AlarmRepository.getAlarm(item.id) != null
+                    val alarm = AlarmRepository.getAlarm(item.id)
+                    alarm != null && alarm.isEnabled
                 }
 
-                if (!exists) {
-                    logger.w(TAG, "Removing invalid item from queue: ID=${item.id}, Type=${item.type}")
-                    // Cancel its timeout and notification
+                val invalid = tooOld || !exists
+
+                if (invalid) {
+                    logger.w(TAG, "Removing invalid queue item: ID=${item.id}, Age=${age/1000}s, Exists=$exists")
                     timeoutJobs[item.id]?.cancel()
                     timeoutJobs.remove(item.id)
-                    val nm = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
+                    val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
                     nm.cancel(item.id)
                 }
 
-                !exists
+                invalid
             }
 
-            InternalDataStore.interruptedItems.removeAll(invalidItems)
+            if (invalidItems.isNotEmpty()) {
+                InternalDataStore.interruptedItems.removeAll(invalidItems)
+                serviceScope.launch {
+                    val db = AppDatabase.getDatabase(applicationContext).alarmDao()
+                    invalidItems.forEach { item ->
+                        try {
+                            db.deleteInterrupted(item)
+                        } catch (e: Exception) {
+                            logger.e(TAG, "Error deleting invalid item", e)
+                        }
+                    }
+                }
+            }
 
             if (InternalDataStore.interruptedItems.isEmpty()) {
-                logger.d(TAG, "No valid interrupted items, stopping service")
-                if (wakeLock?.isHeld == true) {
-                    wakeLock?.release()
-                }
+                logger.d(TAG, "No valid items in queue")
+                if (wakeLock?.isHeld == true) wakeLock?.release()
                 stopSelf()
                 return
             }
 
-            // Use popInterruptedItem to get and remove the next item
             val nextItem = AlarmRepository.popInterruptedItem(this)
 
             if (nextItem != null) {
                 val itemExists = if (nextItem.type == "TIMER") {
                     AlarmRepository.getTimer(nextItem.id) != null
                 } else {
-                    AlarmRepository.getAlarm(nextItem.id) != null
+                    val alarm = AlarmRepository.getAlarm(nextItem.id)
+                    alarm != null && alarm.isEnabled
                 }
 
                 if (itemExists) {
-                    logger.d(TAG, "Resuming interrupted item: ID=${nextItem.id}, Type=${nextItem.type}")
+                    logger.d(TAG, "Resuming: ID=${nextItem.id}")
 
                     if (nextItem.id == currentRingingId) {
-                        logger.w(TAG, "Trying to resume item that's already ringing: ID=${nextItem.id}")
+                        logger.w(TAG, "Already ringing!")
                         checkQueueAndResume()
                         return
                     }
 
-                    // Validate this isn't a duplicate or stale alarm
-                    if (nextItem.type == "ALARM") {
-                        val alarm = AlarmRepository.getAlarm(nextItem.id)
-                        if (alarm != null && !alarm.isEnabled) {
-                            logger.w(TAG, "Skipping disabled alarm: ID=${nextItem.id}")
-                            timeoutJobs[nextItem.id]?.cancel()
-                            timeoutJobs.remove(nextItem.id)
-                            checkQueueAndResume()
-                            return
-                        }
-                    }
-
                     startRingingSession(nextItem.id, nextItem.type, nextItem.label, nextItem.timestamp)
                 } else {
-                    logger.d(TAG, "Interrupted item no longer exists: ID=${nextItem.id}, Type=${nextItem.type}")
+                    logger.d(TAG, "Item ${nextItem.id} no longer valid")
                     timeoutJobs[nextItem.id]?.cancel()
                     timeoutJobs.remove(nextItem.id)
                     checkQueueAndResume()
                 }
             } else {
-                logger.d(TAG, "No more interrupted items, stopping service")
-                if (wakeLock?.isHeld == true) {
-                    wakeLock?.release()
-                }
+                logger.d(TAG, "No more items")
+                if (wakeLock?.isHeld == true) wakeLock?.release()
                 stopSelf()
             }
         } catch (e: Exception) {
             logger.e(TAG, "Error in checkQueueAndResume", e)
-            if (wakeLock?.isHeld == true) {
-                wakeLock?.release()
-            }
+            if (wakeLock?.isHeld == true) wakeLock?.release()
             stopSelf()
         }
     }

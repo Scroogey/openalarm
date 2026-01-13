@@ -49,6 +49,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import java.util.Calendar
 import kotlin.collections.associate
 
@@ -97,6 +99,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch {
+            AlarmRepository.ensureLoaded(this@MainActivity)
+            AlarmRepository.cleanupStaleInterruptedItems(this@MainActivity)
+            NotificationRenderer.refreshAll(this@MainActivity)
+        }
+    }
 
     private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

@@ -22,34 +22,36 @@ object NotificationRenderer {
         val now = System.currentTimeMillis()
         val currentRingingId = AlarmRepository.currentRingingId
 
-        // 1. UPDATE TIMERS (but not if they're currently ringing)
+        // Clean stale items before showing anything
+        AlarmRepository.cleanupStaleInterruptedItems(context)
+
+        // 1. TIMERS (skip if currently ringing)
         AlarmRepository.activeTimers.forEach { timer ->
             if (timer.id != currentRingingId) {
                 val note = createNotification(context, timer.id, "TIMER", isRinging = false, timerOverride = timer)
                 nm.notify(timer.id, note)
-            } else {
-                nm.cancel(timer.id)
             }
         }
 
-        // 1.5 UPDATE INTERRUPTED ALARMS (Silent Ringing) - but not if they're currently ringing
+        // 2. INTERRUPTED ALARMS (skip if currently ringing, only show recent ones)
+        val maxAge = 20 * 60 * 1000L
         InternalDataStore.interruptedItems.forEach { item ->
-            if (item.id != currentRingingId) {
+            val age = now - item.timestamp
+            if (item.id != currentRingingId && age < maxAge) {
                 showSilentRinging(context, item.id, item.type, item.label)
             }
         }
 
-        // 2. SNOOZE
+        // 3. SNOOZE
         val snoozedAlarm = AlarmRepository.groups.flatMap { it.alarms }
             .filter { it.snoozeUntil != null && it.snoozeUntil!! > now }
             .minByOrNull { it.snoozeUntil!! }
 
         updateSnooze(context, nm, now, snoozedAlarm)
 
-        // 3. NEXT ALARM
+        // 4. NEXT ALARM
         updateNextAlarm(context, nm, now, isSnoozing = snoozedAlarm != null)
     }
-
     fun buildRingingNotification(context: Context, id: Int, type: String, label: String = "", triggerTime: Long): Notification {
         val channelId = "ALARM_CHANNEL_ID"
         val now = System.currentTimeMillis()

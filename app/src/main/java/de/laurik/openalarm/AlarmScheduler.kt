@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -96,22 +97,38 @@ class AlarmScheduler(private val context: Context) {
      * and applies the 6 hour safe window to avoid having the alarm ring twice when it
      * was adjusted to ring earlier
      */
-    fun rescheduleCurrentActive (alarm: AlarmItem, context: Context) {
+    fun rescheduleCurrentActive(alarm: AlarmItem, context: Context) {
         val now = System.currentTimeMillis()
         val group = AlarmRepository.groups.find { it.id == alarm.groupId }
         val offset = group?.offsetMinutes ?: 0
 
-        // Calculate the next normal occurrence
+        // Remove from interrupted queue if present
+        val wasInQueue = InternalDataStore.interruptedItems.removeAll { it.id == alarm.id }
+        if (wasInQueue) {
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                try {
+                    val item = InterruptedItem(id = alarm.id, type = "ALARM", label = "", timestamp = 0)
+                    AppDatabase.getDatabase(context).alarmDao().deleteInterrupted(item)
+                } catch (e: Exception) {
+                    android.util.Log.e("AlarmScheduler", "Error removing from interrupted queue", e)
+                }
+            }
+        }
+
+        // Cancel notification
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        nm.cancel(alarm.id)
+
+        // Calculate next occurrence
         val nextOccurrence = AlarmUtils.getNextOccurrence(
             alarm.hour, alarm.minute, alarm.daysOfWeek,
             offset, null, null, now - 60_000
         )
 
-        // Apply the 6-hour safe window
+        // Apply 6-hour safe window
         val shouldSkip = nextOccurrence <= now + (6 * 60 * 60 * 1000)
         val finalSkipTime = if (shouldSkip) now + (6 * 60 * 60 * 1000) else 0L
 
-        // Update the alarm with the skip time if needed
         val updated = alarm.copy(
             snoozeUntil = null,
             currentSnoozeCount = 0,
@@ -121,13 +138,13 @@ class AlarmScheduler(private val context: Context) {
         )
         AlarmRepository.updateAlarm(context, updated)
 
-        // Only reschedule if the alarm is still enabled and not skipped
         if (updated.isEnabled && !shouldSkip) {
-            val scheduler = AlarmScheduler(context)
-            scheduler.schedule(updated, offset)
+            schedule(updated, offset)
         }
-        // delete alarm if it is self destroying
-        if (alarm.isSelfDestroying) { AlarmRepository.deleteAlarm(context, alarm) }
+
+        if (alarm.isSelfDestroying) {
+            AlarmRepository.deleteAlarm(context, alarm)
+        }
     }
 
     /**
