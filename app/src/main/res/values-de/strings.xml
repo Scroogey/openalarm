@@ -157,6 +157,5 @@
     <string name="edit_group">Gruppe bearbeiten</string>
     <string name="desc_expand">Erweitern</string>
     <string name="next_time_group">Nächster: %1$s</string>
-    <string name="snoozed_for_notif">Schlummert für %2$s Min</string>
     <string name="default_tts_timer_done">Timer abgelaufen</string>
 </resources>
