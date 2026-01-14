@@ -231,7 +231,27 @@
     <string name="desc_expand">Expand</string>
     <string name="next_time_group">Next: %1$s</string>
     <string name="default_tts_timer_done">Timer Done</string>
+
     <string name="notif_alarm_silent_ringing_no_label">Alarm is ringing (silent)</string>
     <string name="notif_snoozed_with_label">Alarm %1$s snoozed</string>
     <string name="notif_snoozed">Alarm snoozed</string>
+
+    # --- Alarm Settings ---
+    <string name="setting_single_use">Single Use</string>
+    <string name="setting_self_destroy">Self Destroy</string>
+    <string name="setting_allow_snooze">Allow Snooze</string>
+    <string name="settings_alarm_behaviors">Behaviors</string>
+    <string name="setting_direct_snooze">Direct Snooze</string>
+    <string name="setting_direct_snooze_subtext">Snooze immediately on trigger</string>
+    <string name="setting_snooze_duration">Snooze Duration</string>
+    <string name="setting_snooze_duration_subtext_default">Default (%1$s min)</string>
+    <string name="setting_snooze_duration_subtext_custom">%1$s min</string>
+    <string name="setting_max_snoozes">Max Snoozes</string>
+    <string name="setting_max_snoozes_subtext_infinite">Infinite</string>
+    <string name="setting_max_snoozes_subtext_custom">%1$s times</string>
+    <string name="setting_snooze_presets">Snooze Preset Times</string>
+    <string name="setting_snooze_presets_default">Default</string>
+    <string name="setting_timeout">Timeout</string>
+    <string name="setting_timeout_default">Default (%1$s min)</string>
+    <string name="setting_timeout_custom">%1$s min</string>
 </resources>

@@ -106,12 +106,12 @@ fun AlarmConfigSection(
         Spacer(Modifier.height(8.dp))
 
         ListItem(
-            headlineContent = { Text("Single Use") },
+            headlineContent = { Text(stringResource(R.string.setting_single_use)) },
             trailingContent = { Switch(checked = isSingleUse, onCheckedChange = onSingleUseChange) }
         )
         AnimatedVisibility(visible = isSingleUse) {
             ListItem(
-                headlineContent = { Text("Self Destroy") },
+                headlineContent = { Text(stringResource(R.string.setting_self_destroy)) },
                 trailingContent = { Switch(checked = isSelfDestroying, onCheckedChange = onSelfDestroyingChange) }
             )
         }
@@ -198,40 +198,40 @@ fun AlarmConfigSection(
         HorizontalDivider()
 
         // 4. SNOOZE & TIMEOUT
-        Text("Behaviors", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(vertical = 12.dp))
+        Text(stringResource(R.string.settings_alarm_behaviors), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(vertical = 12.dp))
 
         ListItem(
-            headlineContent = { Text("Allow Snooze") },
+            headlineContent = { Text(stringResource(R.string.setting_allow_snooze)) },
             trailingContent = { Switch(checked = isSnoozeEnabled, onCheckedChange = onSnoozeEnabledChange) }
         )
         AnimatedVisibility(visible = isSnoozeEnabled) {
             Column {
                 ListItem(
-                    headlineContent = { Text("Direct Snooze") },
-                    supportingContent = { Text("Snooze immediately on trigger") },
+                    headlineContent = { Text(stringResource(R.string.setting_direct_snooze)) },
+                    supportingContent = { Text(stringResource(R.string.setting_direct_snooze_subtext)) },
                     trailingContent = { Switch(checked = directSnooze, onCheckedChange = onDirectSnoozeChange) }
                 )
                 ListItem(
-                    headlineContent = { Text("Snooze Duration") },
-                    supportingContent = { Text(if (snoozeDuration == null) "Default ($globalSnooze min)" else "$snoozeDuration min") },
+                    headlineContent = { Text(stringResource(R.string.setting_snooze_duration)) },
+                    supportingContent = { Text(if (snoozeDuration == null) stringResource(R.string.setting_snooze_duration_subtext_default, globalSnooze) else stringResource(R.string.setting_snooze_duration_subtext_custom, snoozeDuration)) },
                     modifier = Modifier.clickable { onSnoozeDurationChange(snoozeDuration) }
                 )
                 ListItem(
-                    headlineContent = { Text("Max Snoozes") },
-                    supportingContent = { Text(if (maxSnoozes == null) "Unlimited" else "$maxSnoozes times") },
+                    headlineContent = { Text(stringResource(R.string.setting_max_snoozes)) },
+                    supportingContent = { Text(if (maxSnoozes == null) stringResource(R.string.setting_max_snoozes_subtext_infinite) else stringResource(R.string.setting_max_snoozes_subtext_custom, maxSnoozes)) },
                     modifier = Modifier.clickable { onMaxSnoozesChange(maxSnoozes) }
                 )
                 ListItem(
-                    headlineContent = { Text("Snooze Picker Options") },
-                    supportingContent = { Text(if (snoozePresets == null) "Default" else snoozePresets.joinToString(", ") { "${it}m" }) },
+                    headlineContent = { Text(stringResource(R.string.setting_snooze_presets)) },
+                    supportingContent = { Text(if (snoozePresets == null) stringResource(R.string.setting_snooze_presets_default) else snoozePresets.joinToString(", ") { "${it}m" }) },
                     modifier = Modifier.clickable { onSnoozePresetsChange(snoozePresets) }
                 )
             }
         }
         
         ListItem(
-            headlineContent = { Text("Auto-Stop") },
-            supportingContent = { Text(if (autoStopDuration == null) "Default ($globalAutoStop min)" else "$autoStopDuration min") },
+            headlineContent = { Text(stringResource(R.string.setting_timeout)) },
+            supportingContent = { Text(if (autoStopDuration == null) stringResource(R.string.setting_timeout_default, globalAutoStop) else stringResource(R.string.setting_timeout_custom, autoStopDuration)) },
             modifier = Modifier.clickable { onAutoStopDurationChange(autoStopDuration) }
         )
 
