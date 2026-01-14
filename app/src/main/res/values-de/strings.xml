@@ -32,7 +32,7 @@
     <string name="label_fade_duration">Dauer: %1$s</string>
     <string name="label_speak_time">Text zu Sprache</string>
     <string name="tts_none">Keines</string>
-    <string name="tts_start">Einmalig</string>
+    <string name="tts_once">Einmalig</string>
     <string name="tts_every_min">Jede Minute</string>
     <string name="label_volume_override">Lautstärke überschreiben</string>
     <string name="label_system">System</string>

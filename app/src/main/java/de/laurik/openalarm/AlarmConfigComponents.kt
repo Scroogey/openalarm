@@ -181,10 +181,15 @@ fun AlarmConfigSection(
             Text(stringResource(R.string.label_speak_time), style = MaterialTheme.typography.bodyLarge)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TtsMode.entries.forEach { mode ->
+                     val string = when (mode.name) {
+                        "NONE" -> { R.string.tts_none }
+                        "ONCE" -> { R.string.tts_once }
+                        else -> { R.string.tts_every_min}
+                    }
                     FilterChip(
                         selected = ttsMode == mode,
                         onClick = { onTtsModeChange(mode) },
-                        label = { Text(mode.name) },
+                        label = { Text(stringResource(string)) },
                         modifier = Modifier.weight(1f)
                     )
                 }

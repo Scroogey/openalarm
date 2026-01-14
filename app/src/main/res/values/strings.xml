@@ -43,7 +43,7 @@
     <string name="label_fade_duration">Duration: %1$s</string>
     <string name="label_speak_time">Text To Speach</string>
     <string name="tts_none">No TTS</string>
-    <string name="tts_start">Once</string>
+    <string name="tts_once">Once</string>
     <string name="tts_every_min">Every Minute</string>
     <string name="label_volume_override">Volume Override</string>
     <string name="label_system">System</string>
