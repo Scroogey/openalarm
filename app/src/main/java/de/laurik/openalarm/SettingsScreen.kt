@@ -398,7 +398,7 @@ fun SettingsScreen(
 
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.label_pure_black)) },
-                        supportingContent = { Text("Only applied when Dark Mode is active.") },
+                        supportingContent = { Text(stringResource(R.string.settings_black_mode_subtext)) },
                         trailingContent = {
                             Switch(
                                 checked = isPureBlack,
@@ -411,15 +411,15 @@ fun SettingsScreen(
 
                     // --- SYSTEM ---
                     Text(
-                        "Advanced",
+                        stringResource(R.string.settings_section_advanced),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(Modifier.height(8.dp))
 
                     ListItem(
-                        headlineContent = { Text("View Logs") },
-                        supportingContent = { Text("View application logs for debugging") },
+                        headlineContent = { Text(stringResource(R.string.setting_view_logs)) },
+                        supportingContent = { Text(stringResource(R.string.setting_view_logs_subtext)) },
                         modifier = Modifier.clickable { currentSubScreen = "LOG_VIEWER" }
                     )
 
@@ -427,7 +427,7 @@ fun SettingsScreen(
 
                     // --- BACKUP ---
                     Text(
-                        "Backup",
+                        stringResource(R.string.settings_section_backup),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -443,13 +443,13 @@ fun SettingsScreen(
                                         if (success) {
                                             android.widget.Toast.makeText(
                                                 context,
-                                                "Backup exported successfully",
+                                                context.getString(R.string.export_successful),
                                                 android.widget.Toast.LENGTH_SHORT
                                             ).show()
                                         } else {
                                             android.widget.Toast.makeText(
                                                 context,
-                                                "Export failed",
+                                                context.getString(R.string.export_failed),
                                                 android.widget.Toast.LENGTH_SHORT
                                             ).show()
                                         }
@@ -467,16 +467,16 @@ fun SettingsScreen(
                         }
 
                     ListItem(
-                        headlineContent = { Text("Export Backup") },
-                        supportingContent = { Text("Save all settings and alarms to a file") },
+                        headlineContent = { Text(stringResource(R.string.setting_export)) },
+                        supportingContent = { Text(stringResource(R.string.setting_export_subtext)) },
                         modifier = Modifier.clickable {
                             exportLauncher.launch("openalarm_backup_${System.currentTimeMillis()}.json")
                         }
                     )
 
                     ListItem(
-                        headlineContent = { Text("Import Backup") },
-                        supportingContent = { Text("Restore settings and alarms from a file") },
+                        headlineContent = { Text(stringResource(R.string.setting_import)) },
+                        supportingContent = { Text(stringResource(R.string.setting_import_subtext)) },
                         modifier = Modifier.clickable {
                             importLauncher.launch("application/json")
                         }
@@ -486,7 +486,7 @@ fun SettingsScreen(
 
                     // --- About/Credits ---
                     Text(
-                        "About",
+                        stringResource(R.string.section_about),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary
                     )

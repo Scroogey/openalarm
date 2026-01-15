@@ -242,7 +242,7 @@ fun AlarmConfigSection(
 
         if (showRingingMode) {
             ListItem(
-                headlineContent = { Text("Ringing Mode") },
+                headlineContent = { Text(stringResource(R.string.setting_ringing_mode)) },
                 supportingContent = { Text(ringingMode.name) },
                 modifier = Modifier.clickable {
                     val modes = if (showDefaultRingingMode) {
@@ -258,8 +258,8 @@ fun AlarmConfigSection(
         }
 
         ListItem(
-            headlineContent = { Text("Background") },
-            supportingContent = { Text(if (backgroundType == "COLOR") "Solid Color" else "Gradient Overlay") },
+            headlineContent = { Text(stringResource(R.string.setting_alarm_background)) },
+            supportingContent = { Text(if (backgroundType == "COLOR") stringResource(R.string.setting_text_solid_color) else stringResource(R.string.setting_text_gradient)) },
             modifier = Modifier.clickable { onBackgroundTypeChange(backgroundType) }
         )
     }
@@ -342,7 +342,7 @@ fun BackgroundConfigDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Alarm Background") },
+        title = { Text(stringResource(R.string.setting_alarm_background_dialog_title)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -355,11 +355,11 @@ fun BackgroundConfigDialog(
                     FilterChip(
                         selected = type == "GRADIENT",
                         onClick = { type = "GRADIENT" },
-                        label = { Text("Gradient") }
+                        label = { Text(stringResource(R.string.setting_text_gradient)) }
                     )
                 }
                 Spacer(Modifier.height(16.dp))
-                Text(if (type == "COLOR") "Select Color" else "Start Color", style = MaterialTheme.typography.labelLarge)
+                Text(if (type == "COLOR") stringResource(R.string.setting_pick_color) else stringResource(R.string.setting_pick_top_color), style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.height(8.dp))
                 ColorPickerGrid(
                     selectedColor = color1,
@@ -368,7 +368,7 @@ fun BackgroundConfigDialog(
                 
                 if (type == "GRADIENT") {
                     Spacer(Modifier.height(16.dp))
-                    Text("End Color", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.setting_pick_bottom_color), style = MaterialTheme.typography.labelLarge)
                     Spacer(Modifier.height(8.dp))
                     ColorPickerGrid(
                         selectedColor = color2,
@@ -379,11 +379,11 @@ fun BackgroundConfigDialog(
         },
         confirmButton = {
             Button(onClick = { onConfirm(type, if (type == "COLOR") color1 else "$color1,$color2") }) {
-                Text("Confirm")
+                Text(stringResource(R.string.button_confirm))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.button_cancel)) }
         }
     )
 }

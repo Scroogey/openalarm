@@ -469,7 +469,7 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
                 } else if (customGroups.isEmpty()) {
                     item {
                         Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Text("No alarms. Tap + to add one.", color = Color.Gray)
+                            Text(stringResource(R.string.no_alarms_create_one), color = Color.Gray)
                         }
                     }
                 }
@@ -622,8 +622,8 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
 
         QuickAdjustDialog(
             quickAdjustPresets = quickAdjustPresets,
-            overrideTitle = "Adjust Group Alarms",
-            currentDisplay = "Adjusts all ${groupToAdjust!!.alarms.count { it.isEnabled }} enabled alarms",
+            overrideTitle = stringResource(R.string.dialog_title_adjust_group_time),
+            currentDisplay = stringResource(R.string.adjust_all_count_alarms, {groupToAdjust!!.alarms.count { it.isEnabled }}),
             currentNextTime = nextTime, // Pass the calculated next time
             hasActiveOverride = groupToAdjust!!.alarms.any { it.temporaryOverrideTime != null },
             onDismiss = { groupToAdjust = null },
@@ -644,19 +644,19 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
     if (groupToDelete != null) {
         AlertDialog(
             onDismissRequest = { groupToDelete = null },
-            title = { Text("Delete Group '${groupToDelete!!.name}'?") },
-            text = { Text("Do you want to delete the alarms inside this group too?") },
+            title = { Text(stringResource(R.string.delete_group_name, {groupToDelete!!.name})) },
+            text = { Text(stringResource(R.string.groups_delete_alarms_too)) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.deleteGroup(groupToDelete!!, keepAlarms = false)
                     groupToDelete = null
-                }) { Text("Delete All", color = Color.Red) }
+                }) { Text(stringResource(R.string.group_delete_all), color = Color.Red) }
             },
             dismissButton = {
                 TextButton(onClick = {
                     viewModel.deleteGroup(groupToDelete!!, keepAlarms = true)
                     groupToDelete = null
-                }) { Text("Keep Alarms (Ungroup)") }
+                }) { Text(stringResource(R.string.group_delete_keep_alarms)) }
             }
         )
     }
@@ -677,7 +677,7 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
                         viewModel.saveAlarm(updated, false)
                     }
                     showDatePickerForAlarm = null
-                }) { Text("Save") }
+                }) { Text(stringResource(R.string.action_save)) }
             }
         ) { DatePicker(state = datePickerState) }
     }
