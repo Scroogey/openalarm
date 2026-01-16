@@ -126,7 +126,7 @@ fun AlarmConfigSection(
 
         // 3. AUDIO
         Text(
-            "Audio",
+            stringResource(R.string.label_audio),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(vertical = 12.dp)
@@ -135,7 +135,7 @@ fun AlarmConfigSection(
         ListItem(
             headlineContent = { Text(stringResource(R.string.label_sound)) },
             supportingContent = { Text(ringtoneTitle) },
-            trailingContent = { Text(">") },
+            trailingContent = { Text(stringResource(R.string.desc_expand)) },
             modifier = Modifier.clickable {
                 val i = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
                     putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
@@ -151,7 +151,7 @@ fun AlarmConfigSection(
             Row {
                 Text(stringResource(R.string.label_volume_override))
                 Spacer(Modifier.weight(1f))
-                Text(if (customVolume != null) "${(customVolume * 100).toInt()}%" else stringResource(R.string.label_system))
+                Text(if (customVolume != null) stringResource(R.string.label_volume_percent, (customVolume * 100).toInt()) else stringResource(R.string.label_system))
             }
             Slider(value = customVolume ?: 0.5f, onValueChange = onVolumeChange, valueRange = 0f..1f)
             if (customVolume != null) {
@@ -170,7 +170,7 @@ fun AlarmConfigSection(
             }
             AnimatedVisibility(visible = fadeInSeconds > 0) {
                 Column {
-                    Text("${fadeInSeconds}s", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Text(stringResource(R.string.fmt_duration_s, fadeInSeconds), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                     Slider(value = fadeInSeconds.toFloat(), onValueChange = { onFadeInChange(it.toInt()) }, valueRange = 1f..180f)
                 }
             }
@@ -223,7 +223,7 @@ fun AlarmConfigSection(
                 )
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.setting_snooze_presets)) },
-                    supportingContent = { Text(if (snoozePresets == null) stringResource(R.string.setting_snooze_presets_default) else snoozePresets.joinToString(", ") { "${it}m" }) },
+                    supportingContent = { Text(if (snoozePresets == null) stringResource(R.string.setting_snooze_presets_default) else snoozePresets.joinToString(", ") { context.getString(R.string.fmt_minutes_short, it) }) },
                     modifier = Modifier.clickable { onSnoozePresetsChange(snoozePresets) }
                 )
             }
@@ -238,7 +238,7 @@ fun AlarmConfigSection(
         HorizontalDivider()
 
         // 5. RINGING SCREEN STYLE
-        Text("Ringing Experience", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(vertical = 12.dp))
+        Text(stringResource(R.string.label_ringing_experience), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(vertical = 12.dp))
 
         if (showRingingMode) {
             ListItem(
@@ -349,7 +349,7 @@ fun BackgroundConfigDialog(
                     FilterChip(
                         selected = type == "COLOR",
                         onClick = { type = "COLOR" },
-                        label = { Text("Color") }
+                        label = { Text(stringResource(R.string.label_color)) }
                     )
                     Spacer(Modifier.width(8.dp))
                     FilterChip(

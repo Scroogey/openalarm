@@ -356,8 +356,8 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         AlarmScheduler(this).rescheduleCurrentActive(alarm, this)
 
         // Show missed notification
-        val timeStr = String.format("%02d:%02d", alarm.hour, alarm.minute)
-        NotificationRenderer.showMissedNotification(this, id, alarm.label, "Missed at $timeStr")
+        val timeStr = this.getString(R.string.fmt_time_printf, alarm.hour, alarm.minute)
+        NotificationRenderer.showMissedNotification(this, alarm.id, alarm.label, this.getString(R.string.notification_missed_at, timeStr))
     }
 
     // --- STOPPING LOGIC ---
@@ -421,7 +421,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 AlarmScheduler(this).rescheduleCurrentActive(alarm, this)
 
                 if (isTimeout) {
-                    NotificationRenderer.showMissedNotification(this, alarm.id, alarm.label, "Timeout")
+                    NotificationRenderer.showMissedNotification(this, alarm.id, alarm.label, this.getString(R.string.notification_timeout))
                 }
             }
         } else if (type == "TIMER") {

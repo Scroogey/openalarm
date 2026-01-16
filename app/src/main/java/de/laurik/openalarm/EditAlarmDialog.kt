@@ -347,14 +347,14 @@ fun EditAlarmDialog(
 
                 // Internal Dialogs
                 if (showSnoozeEdit) OverrideInputDialog(
-                    "Snooze Duration",
+                    stringResource(R.string.dialog_title_snooze_duration),
                     snoozeOverride,
                     globalSnooze,
                     { showSnoozeEdit = false },
                     { snoozeOverride = it; showSnoozeEdit = false })
                 
                 if (showAutoStopEdit) OverrideInputDialog(
-                    "Auto-Stop Timeout",
+                    stringResource(R.string.dialog_title_auto_stop_timeout),
                     autoStopOverride,
                     globalAutoStop,
                     { showAutoStopEdit = false },
@@ -369,17 +369,17 @@ fun EditAlarmDialog(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    "Max Snooze Count",
+                                    stringResource(R.string.dialog_title_max_snooze_count),
                                     style = MaterialTheme.typography.titleMedium
                                 )
                                 Text(
-                                    if (buffer.isEmpty()) "Unlimited" else buffer,
+                                    if (buffer.isEmpty()) stringResource(R.string.label_unlimited) else buffer,
                                     style = MaterialTheme.typography.displayMedium
                                 )
                                 Spacer(Modifier.height(16.dp))
                                 OutlinedButton(onClick = {
                                     showMaxSnoozeEdit = false; maxSnoozes = null
-                                }, Modifier.fillMaxWidth()) { Text("Set Unlimited") }
+                                }, Modifier.fillMaxWidth()) { Text(stringResource(R.string.action_set_unlimited)) }
                                 IntegratedNumpad(
                                     onInput = { if (buffer.length < 2) buffer += it },
                                     onDelete = {
@@ -398,7 +398,7 @@ fun EditAlarmDialog(
                 if (showSnoozePresetsEdit) {
                     val globalPresets by settingsRepo.defaultSnoozePresets.collectAsState(initial = listOf(5, 10, 15))
                     PresetEditDialog(
-                        title = "Snooze Picker Options",
+                        title = stringResource(R.string.dialog_title_snooze_presets),
                         currentValues = snoozePresets ?: globalPresets,
                         onDismiss = { showSnoozePresetsEdit = false },
                         onConfirm = { snoozePresets = it; showSnoozePresetsEdit = false }
@@ -445,7 +445,7 @@ fun OverrideInputDialog(
                     )
                 } else {
                     Text(
-                        "$buffer min",
+                        stringResource(R.string.label_minutes_fmt, buffer.toIntOrNull() ?: 0),
                         style = MaterialTheme.typography.displayMedium,
                         color = MaterialTheme.colorScheme.primary
                     )

@@ -283,4 +283,48 @@
     <string name="setting_import">Import Backup</string>
     <string name="setting_import_subtext">Restore settings and alarms from a file</string>
     <string name="section_about">About</string>
+
+    <!-- Ringtone Service -->
+    <string name="notification_missed_at">Missed at %1$s</string>
+    <string name="notification_timeout">Timeout</string>
+    <string name="label_add_minutes_short">+%1$dm</string>
+
+    <!-- Settings Screen (About/Backup) -->
+    <string name="settings_headline_libraries">Open Source Libraries</string>
+    <string name="settings_supporting_libraries">Open source libraries used to make this app.</string>
+    <string name="settings_headline_license">License</string>
+    <string name="settings_supporting_license">This app is licensed under the Apache-2.0 license</string>
+    <string name="settings_headline_author">Author of Open Alarm</string>
+    <string name="settings_supporting_author">Lauri Kammerer, Copyright 2026</string>
+    <string name="toast_backup_import_success">Backup imported successfully</string>
+    <string name="toast_backup_import_failed">Import failed</string>
+    <string name="dialog_title_careful">Careful!</string>
+    <string name="dialog_msg_import_warning">Importing a backup will PERMANENTLY delete all your current alarms and settings. This action cannot be undone.</string>
+    <string name="label_understand_data_loss">I understand that my current data will be lost.</string>
+    <string name="label_wait_seconds">Wait (%1$ds)</string>
+    <string name="action_delete_and_import">Delete and Import</string>
+
+    <!-- Edit Alarm Dialog -->
+    <string name="dialog_title_snooze_duration">Snooze Duration</string>
+    <string name="dialog_title_auto_stop_timeout">Auto-Stop Timeout</string>
+    <string name="dialog_title_max_snooze_count">Max Snooze Count</string>
+    <string name="label_unlimited">Unlimited</string>
+    <string name="action_set_unlimited">Set Unlimited</string>
+    <string name="dialog_title_snooze_presets">Snooze Picker Options</string>
+
+    <!-- Alarm Config Components -->
+    <string name="label_audio">Audio</string>
+    <string name="label_ringing_experience">Ringing Experience</string>
+    <string name="label_color">Color</string>
+
+    <!-- Main Activity (Permissions/FAB) -->
+    <string name="dialog_title_permission_required">Permission Required</string>
+    <string name="dialog_msg_permission_exact_alarm">To ring alarms at the exact time, this app needs the \'Alarms &amp; Reminders\' permission.</string>
+    <string name="dialog_msg_permission_full_screen">To show the alarm screen while the phone is locked, please allow \'Full-screen notifications\'.</string>
+    <string name="action_grant">Grant</string>
+    <string name="action_add_timer">Add Timer</string>
+    <string name="action_add_alarm">Add Alarm</string>
+    <string name="fmt_time_24h">HH:mm</string>
+    <string name="fmt_time_printf">%1$02d:%2$02d</string>
+    <string name="fmt_minutes_short">%1$dm</string>
 </resources>

@@ -191,8 +191,8 @@ fun CheckSystemPermissions() {
     if (showExactAlarmDialog) {
         AlertDialog(
             onDismissRequest = { showExactAlarmDialog = false },
-            title = { Text("Permission Required") },
-            text = { Text("To ring alarms at the exact time, this app needs the 'Alarms & Reminders' permission.") },
+            title = { Text(stringResource(R.string.dialog_title_permission_required)) },
+            text = { Text(stringResource(R.string.dialog_msg_permission_exact_alarm)) },
             confirmButton = {
                 TextButton(onClick = {
                     showExactAlarmDialog = false
@@ -202,10 +202,10 @@ fun CheckSystemPermissions() {
                         }
                         context.startActivity(intent)
                     }
-                }) { Text("Grant") }
+                }) { Text(stringResource(R.string.action_grant)) }
             },
             dismissButton = {
-                TextButton(onClick = { showExactAlarmDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showExactAlarmDialog = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -213,8 +213,8 @@ fun CheckSystemPermissions() {
     if (showFullScreenDialog) {
         AlertDialog(
             onDismissRequest = { showFullScreenDialog = false },
-            title = { Text("Permission Required") },
-            text = { Text("To show the alarm screen while the phone is locked, please allow 'Full-screen notifications'.") },
+            title = { Text(stringResource(R.string.dialog_title_permission_required)) },
+            text = { Text(stringResource(R.string.dialog_msg_permission_full_screen)) },
             confirmButton = {
                 TextButton(onClick = {
                     showFullScreenDialog = false
@@ -224,10 +224,10 @@ fun CheckSystemPermissions() {
                         }
                         context.startActivity(intent)
                     }
-                }) { Text("Grant") }
+                }) { Text(stringResource(R.string.action_grant)) }
             },
             dismissButton = {
-                TextButton(onClick = { showFullScreenDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showFullScreenDialog = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -318,7 +318,7 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
                     onClick = onSettingsClick,
                     modifier = Modifier.align(Alignment.BottomStart)
                 ) {
-                    Icon(androidx.compose.material.icons.Icons.Default.Settings, contentDescription = "Settings")
+                    Icon(androidx.compose.material.icons.Icons.Default.Settings, contentDescription = stringResource(R.string.title_settings))
                 }
 
                 // Right: Expandable Action
@@ -338,7 +338,7 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
                                     isFabExpanded = false
                                 },
                                 modifier = Modifier.padding(bottom = 16.dp),
-                                text = { Text("Add Timer") },
+                                text = { Text(stringResource(R.string.action_add_timer)) },
                                 icon = { Icon(androidx.compose.material.icons.Icons.Default.Timer, null) }
                             )
 
@@ -354,7 +354,7 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
                                     isFabExpanded = false
                                 },
                                 modifier = Modifier.padding(bottom = 16.dp),
-                                text = { Text("Add Alarm") },
+                                text = { Text(stringResource(R.string.action_add_alarm)) },
                                 icon = { Icon(androidx.compose.material.icons.Icons.Default.Alarm, null) }
                             )
                         }
@@ -363,7 +363,7 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
                     FloatingActionButton(onClick = { isFabExpanded = !isFabExpanded }) {
                         Icon(
                             if (isFabExpanded) androidx.compose.material.icons.Icons.Default.Close else androidx.compose.material.icons.Icons.Default.Add,
-                            contentDescription = "Add"
+                            contentDescription = stringResource(if (isFabExpanded) R.string.desc_close else R.string.desc_expand)
                         )
                     }
                 }
@@ -405,7 +405,7 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))
                     ) {
                         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(if(diff>0) AlarmUtils.formatDuration(context, (diff/1000).toInt()) else "Done", style = MaterialTheme.typography.headlineSmall, color = Color(0xFFE65100))
+                            Text(if(diff>0) AlarmUtils.formatDuration(context, (diff/1000).toInt()) else stringResource(R.string.timer_ringing), style = MaterialTheme.typography.headlineSmall, color = Color(0xFFE65100))
                             Spacer(Modifier.weight(1f))
                             Button(onClick = { viewModel.stopTimer(timer.id) }) { Text(stringResource(R.string.action_stop)) }
                         }

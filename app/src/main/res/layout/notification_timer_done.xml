@@ -50,7 +50,7 @@
             android:id="@+id/txt_add_1"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="+1m"
+            android:text=""
             android:textSize="10sp"
             android:textColor="#FFFFFF" />
     </LinearLayout>
@@ -72,7 +72,7 @@
             android:id="@+id/txt_add_2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="+5m"
+            android:text=""
             android:textSize="10sp"
             android:textColor="#FFFFFF" />
     </LinearLayout>

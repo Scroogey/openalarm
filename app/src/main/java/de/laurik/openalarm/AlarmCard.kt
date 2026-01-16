@@ -83,7 +83,7 @@ fun AlarmCard(
 
     // C. Calculate the "Big Display" time
     val (displayTimeBig, displayTimeSmall, labelPrefix) = remember(activeOverride, groupOffset, baseTime) {
-        val formatter = DateTimeFormatter.ofPattern("HH:mm")
+        val formatter = DateTimeFormatter.ofPattern(context.getString(R.string.fmt_time_24h))
 
         if (activeOverride != null) {
             // CASE 1: Single Override Active (e.g. "Adjusted")

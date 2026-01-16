@@ -166,7 +166,7 @@ object NotificationRenderer {
                     putExtra("SECONDS", seconds)
                 }
                 val p = PendingIntent.getService(context, id * 30 + 100 + index, addIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-                builder.addAction(0, "+${seconds / 60}m", p)
+                builder.addAction(0, context.getString(R.string.label_add_minutes_short, seconds / 60), p)
             }
         }
 
@@ -322,7 +322,7 @@ object NotificationRenderer {
                     }
                     val p = PendingIntent.getService(context, id * 30 + 200 + index, addIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                     customView.setViewVisibility(btnIds[index], android.view.View.VISIBLE)
-                    customView.setTextViewText(txtIds[index], "+${seconds / 60}m")
+                    customView.setTextViewText(txtIds[index], context.getString(R.string.label_add_minutes_short, seconds / 60))
                     customView.setOnClickPendingIntent(btnIds[index], p)
                 }
             }
@@ -368,7 +368,7 @@ object NotificationRenderer {
 
         if (type == "TIMER") {
             presets.forEachIndexed { index, seconds ->
-                builder.addAction(0, "+${seconds / 60}m", addTimePendings[index])
+                builder.addAction(0, context.getString(R.string.label_add_minutes_short, seconds / 60), addTimePendings[index])
             }
         }
 

@@ -493,16 +493,16 @@ fun SettingsScreen(
                     Spacer(Modifier.height(8.dp))
 
                     ListItem(
-                        headlineContent = { Text("Open Source Libraries") },
-                        supportingContent = { Text("Open source libraries used to make this app.") },
+                        headlineContent = { Text(stringResource(R.string.settings_headline_libraries)) },
+                        supportingContent = { Text(stringResource(R.string.settings_supporting_libraries)) },
                         modifier = Modifier.clickable {
                             currentSubScreen = "OPEN_SOURCE_LIBRARIES"
                         }
                     )
 
                     ListItem(
-                        headlineContent = { Text("License") },
-                        supportingContent = { Text("This app is licensed under the Apache-2.0 license") },
+                        headlineContent = { Text(stringResource(R.string.settings_headline_license)) },
+                        supportingContent = { Text(stringResource(R.string.settings_supporting_license)) },
                         modifier = Modifier.clickable {
                             currentSubScreen = "LICENSE"
                         } // TODO
@@ -510,8 +510,8 @@ fun SettingsScreen(
                     )
 
                     ListItem(
-                        headlineContent = { Text("Author of Open Alarm") },
-                        supportingContent = { Text("Lauri Kammerer, Copyright 2026") },
+                        headlineContent = { Text(stringResource(R.string.settings_headline_author)) },
+                        supportingContent = { Text(stringResource(R.string.settings_supporting_author)) },
                     )
 
                     // --- DIALOGS ---
@@ -586,13 +586,13 @@ fun SettingsScreen(
                                             if (success) {
                                                 android.widget.Toast.makeText(
                                                     context,
-                                                    "Backup imported successfully",
+                                                    R.string.toast_backup_import_success,
                                                     android.widget.Toast.LENGTH_SHORT
                                                 ).show()
                                             } else {
                                                 android.widget.Toast.makeText(
                                                     context,
-                                                    "Import failed",
+                                                    R.string.toast_backup_import_failed,
                                                     android.widget.Toast.LENGTH_SHORT
                                                 ).show()
                                             }
@@ -723,17 +723,17 @@ fun ImportConfirmationDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Careful!") },
+        title = { Text(stringResource(R.string.dialog_title_careful)) },
         text = {
             Column {
-                Text("Importing a backup will PERMANENTLY delete all your current alarms and settings. This action cannot be undone.")
+                Text(stringResource(R.string.dialog_msg_import_warning))
                 Spacer(Modifier.height(16.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.clickable { acknowledged = !acknowledged }
                 ) {
                     Checkbox(checked = acknowledged, onCheckedChange = { acknowledged = it })
-                    Text("I understand that my current data will be lost.")
+                    Text(stringResource(R.string.label_understand_data_loss))
                 }
             }
         },
@@ -744,15 +744,15 @@ fun ImportConfirmationDialog(
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
             ) {
                 if (isTimerRunning) {
-                    Text("Wait (${timeLeft}s)")
+                    Text(stringResource(R.string.label_wait_seconds, timeLeft))
                 } else {
-                    Text("Delete and Import")
+                    Text(stringResource(R.string.action_delete_and_import))
                 }
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.action_cancel))
             }
         }
     )
