@@ -101,7 +101,7 @@ object AlarmUtils {
         val target = Instant.ofEpochMilli(timestamp).atZone(zoneId).toLocalDateTime()
         val now = LocalDateTime.now(zoneId)
 
-        val timeStr = context.getString(R.string.fmt_time_printf, target.hour, target.minute)
+        val timeStr = String.format("%02d:%02d", target.hour, target.minute)
 
         // Check if tomorrow using ChronoUnit for accuracy
         val daysBetween = ChronoUnit.DAYS.between(now.toLocalDate(), target.toLocalDate())
@@ -180,7 +180,7 @@ object AlarmUtils {
         if (nextAlarmTime == null) return null
 
         val cNext = Calendar.getInstance().apply { timeInMillis = nextAlarmTime!! }
-        val timeStr = context.getString(R.string.fmt_time_printf, cNext.get(Calendar.HOUR_OF_DAY), cNext.get(Calendar.MINUTE))
+        val timeStr = String.format("%02d:%02d", cNext.get(Calendar.HOUR_OF_DAY), cNext.get(Calendar.MINUTE))
         val hoursLeft = minDiff / (1000 * 60 * 60)
         val minsLeft = (minDiff / (1000 * 60)) % 60
         val secondsLeft = (minDiff / 1000) % 60

@@ -61,7 +61,7 @@ fun DefaultAlarmSettingsScreen(
 
             Column(Modifier.verticalScroll(scrollState)) {
                 AlarmConfigSection(
-                    label = "Default",
+                    label = stringResource(R.string.label_default),
                     onLabelChange = { /* Default label usually empty */ },
                     vibration = vibration,
                     onVibrationChange = { viewModel.setDefVibration(it) },
@@ -117,28 +117,28 @@ fun DefaultAlarmSettingsScreen(
             }
         }
         if (showSnoozeEdit) OverrideInputDialog(
-            "Default Snooze",
+            stringResource(R.string.dialog_title_default_snooze),
             globalSnooze,
             10,
             { showSnoozeEdit = false },
             { it?.let { viewModel.setDefaultSnooze(it) }; showSnoozeEdit = false }
         )
         if (showAutoStopEdit) OverrideInputDialog(
-            "Default Auto-Stop",
+            stringResource(R.string.dialog_title_default_auto_stop),
             globalAutoStop,
             10,
             { showAutoStopEdit = false },
             { it?.let { viewModel.setDefaultAutoStop(it) }; showAutoStopEdit = false }
         )
         if (showMaxSnoozeEdit) OverrideInputDialog(
-            "Default Max Snoozes",
+            stringResource(R.string.dialog_title_default_max_snoozes),
             maxSnoozes ?: 0,
             0,
             { showMaxSnoozeEdit = false },
             { viewModel.setDefMaxSnoozes(if (it == 0) null else it); showMaxSnoozeEdit = false }
         )
         if (showSnoozePresetsEdit) PresetEditDialog(
-            "Default Snooze Options",
+            stringResource(R.string.dialog_title_default_snooze_presets),
             snoozePresets,
             { showSnoozePresetsEdit = false },
             { viewModel.setDefaultSnoozePresets(it); showSnoozePresetsEdit = false }

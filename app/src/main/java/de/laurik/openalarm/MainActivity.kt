@@ -623,7 +623,7 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
         QuickAdjustDialog(
             quickAdjustPresets = quickAdjustPresets,
             overrideTitle = stringResource(R.string.dialog_title_adjust_group_time),
-            currentDisplay = stringResource(R.string.adjust_all_count_alarms, {groupToAdjust!!.alarms.count { it.isEnabled }}),
+            currentDisplay = stringResource(R.string.adjust_all_count_alarms, groupToAdjust!!.alarms.count { it.isEnabled }),
             currentNextTime = nextTime, // Pass the calculated next time
             hasActiveOverride = groupToAdjust!!.alarms.any { it.temporaryOverrideTime != null },
             onDismiss = { groupToAdjust = null },
@@ -644,7 +644,7 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
     if (groupToDelete != null) {
         AlertDialog(
             onDismissRequest = { groupToDelete = null },
-            title = { Text(stringResource(R.string.delete_group_name, {groupToDelete!!.name})) },
+            title = { Text(stringResource(R.string.delete_group_name, groupToDelete!!.name)) },
             text = { Text(stringResource(R.string.groups_delete_alarms_too)) },
             confirmButton = {
                 TextButton(onClick = {
