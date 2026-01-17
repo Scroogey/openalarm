@@ -4,7 +4,7 @@ This is an advanced, open source alarm app.
 **Alarms**
 - adjust next ring time (e.g. tomorrow you have no class the first period: add 45min only to your next alarm)
 - skip alarms for one day or until a specific date (useful for holidays)
-- settings: ringtone, vibrate, Time announcement via TTS (custom TTS planned), days of week to ring, ring once, self destroy after stopping, custom ringtone volume, fade-in
+- settings: ringtone, vibrate, Time announcement via TTS (custom TTS supported), days of week to ring, ring once, self destroy after stopping, custom ringtone volume, fade-in
 - alarm snooze: enable/disable, set how often it is allowed to snooze, change default snooze time, set snooze presets (3), custom timeout
 - Two ringing screens: Clean (with joystick like control) and Easy (with simple buttons)
 - label/name for alarms
@@ -23,11 +23,11 @@ This is an advanced, open source alarm app.
 Planned features (in no particular order):
 
 - [ ] Add custom ringtones
-- [ ] Add languages
+- [x] Add languages (german and english are supported, you are welcome to translate momre)
 - [ ] add puzzles/math quizzes/other questions before stopping/snoozing
 - [ ] add user feedback notifications (e.g. for max adjustment time)
 - [ ] fixing notification color for all devices
-- [ ] custom alarm TTS (with name, day of week and time code like %name%)
+- [x] custom alarm TTS (with name, day of week and time code like %name%)
 - [x] add import/export
 - [ ] add message to undo deletion of alarm and or
 - [ ] trash/restore bin for deleted alarms
