@@ -24,8 +24,8 @@ internal object InternalDataStore {
 
     // CONSTANTS
     const val NOTIF_COLOR = 0xFF101010.toInt()
-    const val TIMER_RUNNING_COLOR = 0xFFE65100.toInt()
-    const val TIMER_DONE_COLOR = 0xFFB71C1C.toInt()
+    const val TIMER_RUNNING_COLOR = 0xFFF67120.toInt()
+    const val TIMER_DONE_COLOR = 0xFFD73C3C.toInt()
 }
 
 object AlarmRepository {

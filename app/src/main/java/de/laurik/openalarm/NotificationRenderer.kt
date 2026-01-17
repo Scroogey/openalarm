@@ -151,6 +151,7 @@ object NotificationRenderer {
             .setContentTitle(title)
             .setCustomContentView(customView)
             .setCustomBigContentView(customView)
+            .setCustomHeadsUpContentView(customView)
             .setOngoing(true)
             .setAutoCancel(false)
             .setVibrate(longArrayOf(0L)) // near zero vibration to avoid being applied a low priority label

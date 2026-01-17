@@ -2,6 +2,7 @@ package de.laurik.openalarm
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -19,6 +20,11 @@ fun SmartTimePickerLayout(
 ) {
     var editingColumn by remember { mutableStateOf(TimeColumn.NONE) }
     var inputBuffer by remember { mutableStateOf("") }
+    
+    BackHandler(enabled = editingColumn != TimeColumn.NONE) {
+        editingColumn = TimeColumn.NONE
+        inputBuffer = ""
+    }
 
     // Helper to find next column for auto-advance
     fun advanceColumn() {

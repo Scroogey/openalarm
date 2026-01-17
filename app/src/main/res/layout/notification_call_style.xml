@@ -4,7 +4,7 @@
     android:layout_height="64dp"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:background="@android:color/transparent">
+    android:background="#121212">
 
     <!-- Text Area -->
     <LinearLayout
@@ -19,14 +19,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/notif_wake_up"
-            style="@style/TextAppearance.Compat.Notification.Title" />
+            android:textColor="#FFFFFF" />
 
         <!-- Timer -->
         <Chronometer
             android:id="@+id/notif_chronometer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            style="@style/TextAppearance.Compat.Notification.Info" />
+            android:textColor="#FFFFFF" />
     </LinearLayout>
 
     <!-- Snooze Button -->
@@ -45,7 +45,7 @@
             android:layout_height="24dp"
             android:src="@drawable/ic_reset_time"
             android:tint="#FFFFFF" />
-        
+
         <!-- Text matches the icon -->
         <TextView
             android:layout_width="wrap_content"
@@ -53,7 +53,7 @@
             android:id="@+id/text_snooze"
             android:text="@string/snooze_10_min"
             android:textSize="12sp"
-            style="@style/TextAppearance.Compat.Notification.Title" />
+            android:textColor="#FFFFFF" />
     </LinearLayout>
 
     <!-- Stop Button -->

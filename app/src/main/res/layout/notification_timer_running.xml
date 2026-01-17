@@ -5,7 +5,7 @@
     android:layout_height="64dp"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:background="@android:color/transparent">
+    android:background="#121212">
 
     <!-- Text Area -->
     <LinearLayout
@@ -20,7 +20,7 @@
             android:layout_height="wrap_content"
             android:text="@string/notif_time_remaining"
             android:textSize="12sp"
-            android:textColor="#CCCCCC" />
+            android:textColor="#FFFFFF" />
 
         <!-- BIG TEXT for Countdown -->
         <Chronometer
@@ -91,14 +91,14 @@
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:src="@drawable/ic_outline_cancel"
-            android:tint="#000000" />
+            android:tint="#FFFFFF" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/action_cancel"
             android:textSize="12sp"
-            android:textColor="#000000" />
+            android:textColor="#FFFFFF" />
     </LinearLayout>
 
 </LinearLayout>
