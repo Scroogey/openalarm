@@ -7,7 +7,7 @@
     <string name="action_save">Speichern</string>
     <string name="action_reset">Zurücksetzen</string>
     <string name="action_start">Start</string>
-    <string name="action_dismiss">Schließen</string>
+    <string name="action_dismiss">Verwerfen</string>
     <string name="action_grant">Zulassen</string>
     <string name="button_confirm">Bestätigen</string>
     <string name="button_cancel">Abbrechen</string>
