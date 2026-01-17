@@ -119,6 +119,12 @@ class AlarmScheduler(private val context: Context) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         nm.cancel(alarm.id)
 
+        // If self-destroying, delete now and stop
+        if (alarm.isSelfDestroying) {
+            AlarmRepository.deleteAlarm(context, alarm)
+            return
+        }
+
         // Calculate next occurrence
         val nextOccurrence = AlarmUtils.getNextOccurrence(
             alarm.hour, alarm.minute, alarm.daysOfWeek,
@@ -140,10 +146,6 @@ class AlarmScheduler(private val context: Context) {
 
         if (updated.isEnabled && !shouldSkip) {
             schedule(updated, offset)
-        }
-
-        if (alarm.isSelfDestroying) {
-            AlarmRepository.deleteAlarm(context, alarm)
         }
     }
 

@@ -154,7 +154,7 @@ object AlarmRepository {
     }
 
     fun deleteAlarm(context: Context, alarm: AlarmItem) {
-        InternalDataStore.groups.forEach { it.alarms.remove(alarm) }
+        InternalDataStore.groups.forEach { it.alarms.removeIf { a -> a.id == alarm.id } }
         InternalDataStore.interruptedItems.removeAll { it.id == alarm.id && it.type == "ALARM" }
         // Cancel any pending notifications
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
