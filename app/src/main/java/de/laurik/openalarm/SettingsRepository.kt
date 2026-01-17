@@ -76,6 +76,9 @@ class SettingsRepository(context: Context) {
     private val _defTtsMode = MutableStateFlow(getTtsMode("def_alarm_tts", TtsMode.NONE))
     val defTtsMode: StateFlow<TtsMode> = _defTtsMode.asStateFlow()
 
+    private val _defTtsText = MutableStateFlow(prefs.getString("def_alarm_tts_text", "") ?: "")
+    val defTtsText: StateFlow<String> = _defTtsText.asStateFlow()
+
     private val _defIsSingleUse = MutableStateFlow(prefs.getBoolean("def_alarm_single_use", false))
     val defIsSingleUse: StateFlow<Boolean> = _defIsSingleUse.asStateFlow()
 
@@ -121,6 +124,7 @@ class SettingsRepository(context: Context) {
         _defCustomVolume.value = prefs.getFloat("def_alarm_volume", -1f).takeIf { it >= 0 }
         _defFadeInSeconds.value = prefs.getInt("def_alarm_fade", 0)
         _defTtsMode.value = getTtsMode("def_alarm_tts", TtsMode.NONE)
+        _defTtsText.value = prefs.getString("def_alarm_tts_text", "") ?: ""
         _defIsSingleUse.value = prefs.getBoolean("def_alarm_single_use", false)
         _defIsSelfDestroying.value = prefs.getBoolean("def_alarm_self_destroy", false)
         _defDaysOfWeek.value = getIntList("def_alarm_days", listOf(1, 2, 3, 4, 5, 6, 7))
@@ -251,6 +255,11 @@ class SettingsRepository(context: Context) {
     fun setDefTtsMode(mode: TtsMode) {
         prefs.edit().putString("def_alarm_tts", mode.name).apply()
         _defTtsMode.value = mode
+    }
+
+    fun setDefTtsText(text: String) {
+        prefs.edit().putString("def_alarm_tts_text", text).apply()
+        _defTtsText.value = text
     }
 
     fun setDefSingleUse(enabled: Boolean) {

@@ -25,6 +25,7 @@ fun DefaultAlarmSettingsScreen(
     val customVolume by viewModel.defCustomVolume.collectAsState()
     val fadeIn by viewModel.defFadeInSeconds.collectAsState()
     val ttsMode by viewModel.defTtsMode.collectAsState()
+    val ttsText by viewModel.defTtsText.collectAsState()
     val isSingleUse by viewModel.defIsSingleUse.collectAsState()
     val isSelfDestroying by viewModel.defIsSelfDestroying.collectAsState()
     val daysOfWeek by viewModel.defDaysOfWeek.collectAsState()
@@ -73,6 +74,8 @@ fun DefaultAlarmSettingsScreen(
                     onFadeInChange = { viewModel.setDefFadeIn(it) },
                     ttsMode = ttsMode,
                     onTtsModeChange = { viewModel.setDefTtsMode(it) },
+                    ttsText = ttsText,
+                    onTtsTextChange = { viewModel.setDefTtsText(it) },
                     isSingleUse = isSingleUse,
                     onSingleUseChange = { viewModel.setDefSingleUse(it) },
                     isSelfDestroying = isSelfDestroying,

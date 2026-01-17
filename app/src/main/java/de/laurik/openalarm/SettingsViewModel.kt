@@ -100,6 +100,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TtsMode.NONE)
     fun setDefTtsMode(m: TtsMode) = repository.setDefTtsMode(m)
 
+    val defTtsText = repository.defTtsText
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+    fun setDefTtsText(t: String) = repository.setDefTtsText(t)
+
     val defIsSingleUse = repository.defIsSingleUse
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     fun setDefSingleUse(e: Boolean) = repository.setDefSingleUse(e)
@@ -145,7 +149,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             id = 0, hour = hour, minute = minute, groupId = "default",
             vibrationEnabled = defVibrationEnabled.value, ringtoneUri = defRingtoneUri.value,
             customVolume = defCustomVolume.value, fadeInSeconds = defFadeInSeconds.value,
-            ttsMode = defTtsMode.value, isSingleUse = defIsSingleUse.value,
+            ttsMode = defTtsMode.value, ttsText = defTtsText.value.ifBlank { null },
+            isSingleUse = defIsSingleUse.value,
             isSelfDestroying = defIsSelfDestroying.value, daysOfWeek = defDaysOfWeek.value,
             isSnoozeEnabled = defIsSnoozeEnabled.value, directSnooze = defDirectSnooze.value,
             maxSnoozes = defMaxSnoozes.value, snoozePresets = null, ringingScreenMode = defaultRingingMode.value

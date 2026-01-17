@@ -44,6 +44,8 @@ fun AlarmConfigSection(
     onFadeInChange: (Int) -> Unit,
     ttsMode: TtsMode,
     onTtsModeChange: (TtsMode) -> Unit,
+    ttsText: String,
+    onTtsTextChange: (String) -> Unit,
     isSingleUse: Boolean,
     onSingleUseChange: (Boolean) -> Unit,
     isSelfDestroying: Boolean,
@@ -135,7 +137,7 @@ fun AlarmConfigSection(
         ListItem(
             headlineContent = { Text(stringResource(R.string.label_sound)) },
             supportingContent = { Text(ringtoneTitle) },
-            trailingContent = { Text(stringResource(R.string.desc_expand)) },
+            trailingContent = { Text(">") },
             modifier = Modifier.clickable {
                 val i = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
                     putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
@@ -178,19 +180,50 @@ fun AlarmConfigSection(
 
         // TTS
         Column(Modifier.padding(vertical = 12.dp)) {
-            Text(stringResource(R.string.label_speak_time), style = MaterialTheme.typography.bodyLarge)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TtsMode.entries.forEach { mode ->
-                     val string = when (mode.name) {
-                        "NONE" -> { R.string.tts_none }
-                        "ONCE" -> { R.string.tts_once }
-                        else -> { R.string.tts_every_min}
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.label_speak_time), style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.weight(1f))
+                Switch(
+                    checked = ttsMode != TtsMode.NONE,
+                    onCheckedChange = { enabled ->
+                        onTtsModeChange(if (enabled) TtsMode.ONCE else TtsMode.NONE)
                     }
-                    FilterChip(
-                        selected = ttsMode == mode,
-                        onClick = { onTtsModeChange(mode) },
-                        label = { Text(stringResource(string)) },
-                        modifier = Modifier.weight(1f)
+                )
+            }
+            
+            AnimatedVisibility(visible = ttsMode != TtsMode.NONE) {
+                Column {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(R.string.label_tts_frequency),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = ttsMode == TtsMode.ONCE,
+                            onClick = { onTtsModeChange(TtsMode.ONCE) },
+                            label = { Text(stringResource(R.string.tts_once)) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = ttsMode == TtsMode.EVERY_MINUTE,
+                            onClick = { onTtsModeChange(TtsMode.EVERY_MINUTE) },
+                            label = { Text(stringResource(R.string.tts_every_min)) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = ttsText,
+                        onValueChange = onTtsTextChange,
+                        label = { Text(stringResource(R.string.label_custom_tts_text)) },
+                        placeholder = { Text(stringResource(R.string.hint_custom_tts_text)) },
+                        supportingText = { Text(stringResource(R.string.desc_tts_variables)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = false,
+                        maxLines = 3
                     )
                 }
             }

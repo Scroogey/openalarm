@@ -80,6 +80,7 @@ data class AlarmItem(
     var customVolume: Float? = null,
     var fadeInSeconds: Int = 0,
     var ttsMode: TtsMode = TtsMode.NONE,
+    var ttsText: String? = null,
     var isSingleUse: Boolean = false,
     var isSelfDestroying: Boolean = false,
     

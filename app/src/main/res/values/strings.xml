@@ -110,6 +110,10 @@
     <string name="label_timer_tts_text">Custom Text</string>
     <string name="hint_timer_tts_text">e.g., "Time is up!"</string>
     <string name="default_tts_timer_done">Timer Done</string>
+    <string name="label_custom_tts_text">Custom TTS Text</string>
+    <string name="hint_custom_tts_text">e.g., "Wake up! It\'s %time%"</string>
+    <string name="desc_tts_variables" formatted="false">Available variables: %label%, %day%, %time%</string>
+    <string name="label_tts_frequency">TTS Frequency</string>
 
     <!-- Ringing Screen -->
     <string name="label_alarm">Alarm</string>

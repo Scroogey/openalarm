@@ -701,13 +701,26 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
         var applyMaxSystemVolume = false
         if (type == "ALARM") {
-            AlarmRepository.getAlarm(id)?.let {
-                if (it.ringtoneUri != null) uri = android.net.Uri.parse(it.ringtoneUri)
-                volume = it.customVolume ?: 1.0f
-                applyMaxSystemVolume = it.customVolume != null
-                vibrate = it.vibrationEnabled
-                ttsMode = it.ttsMode
-                fadeInSeconds = it.fadeInSeconds
+            AlarmRepository.getAlarm(id)?.let { alarm ->
+                if (alarm.ringtoneUri != null) uri = android.net.Uri.parse(alarm.ringtoneUri)
+                volume = alarm.customVolume ?: 1.0f
+                applyMaxSystemVolume = alarm.customVolume != null
+                vibrate = alarm.vibrationEnabled
+                ttsMode = alarm.ttsMode
+                fadeInSeconds = alarm.fadeInSeconds
+                
+                // Get custom TTS text and substitute variables
+                if (ttsMode != TtsMode.NONE) {
+                    val customText = alarm.ttsText
+                    ttsText = if (!customText.isNullOrBlank()) {
+                        substituteTtsVariables(customText, alarm)
+                    } else {
+                        // Default: announce time
+                        val now = java.time.LocalTime.now()
+                        getString(R.string.tts_time_announce, now.format(java.time.format.DateTimeFormatter.ofPattern("H:mm")))
+                    }
+                }
+                
                 logger.d(TAG, "Setting custom volume: $volume (boost: $applyMaxSystemVolume) for alarm ID: $id")
             }
         } else {
@@ -903,6 +916,32 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
     private fun speak(text: String, params: Bundle) {
         tts?.speak(text, TextToSpeech.QUEUE_ADD, params, "ID_${System.currentTimeMillis()}")
+    }
+
+    private fun substituteTtsVariables(text: String, alarm: AlarmItem): String {
+        var result = text
+        
+        // Replace %label% with alarm label
+        result = result.replace("%label%", alarm.label.ifBlank { getString(R.string.default_alarm_title) }, ignoreCase = true)
+        
+        // Replace %day% with current day name
+        val dayOfWeek = java.time.LocalDate.now().dayOfWeek
+        val dayName = when (dayOfWeek) {
+            java.time.DayOfWeek.MONDAY -> getString(R.string.day_monday)
+            java.time.DayOfWeek.TUESDAY -> getString(R.string.day_tuesday)
+            java.time.DayOfWeek.WEDNESDAY -> getString(R.string.day_wednesday)
+            java.time.DayOfWeek.THURSDAY -> getString(R.string.day_thursday)
+            java.time.DayOfWeek.FRIDAY -> getString(R.string.day_friday)
+            java.time.DayOfWeek.SATURDAY -> getString(R.string.day_saturday)
+            java.time.DayOfWeek.SUNDAY -> getString(R.string.day_sunday)
+        }
+        result = result.replace("%day%", dayName, ignoreCase = true)
+        
+        // Replace %time% with alarm time
+        val timeStr = String.format("%02d:%02d", alarm.hour, alarm.minute)
+        result = result.replace("%time%", timeStr, ignoreCase = true)
+        
+        return result
     }
 
     private fun foregroundId() = currentRingingId

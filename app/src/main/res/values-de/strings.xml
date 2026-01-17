@@ -85,7 +85,7 @@
     <string name="label_volume_percent">Lautstärke: %1$d%%</string>
     <string name="label_volume_override">Lautstärke</string>
     <string name="label_system">System</string>
-    <string name="label_fade_in">Einblenden</string>
+    <string name="label_fade_in">Fade-In</string>
     <string name="label_fade_duration">Dauer: %1$s</string>
     <string name="label_speak_time">Vorlesen (TTS)</string>
     <string name="tts_none">Kein TTS</string>
@@ -110,6 +110,10 @@
     <string name="label_timer_tts_text">Eigener Text</string>
     <string name="hint_timer_tts_text">z.B. "Die Zeit ist um!"</string>
     <string name="default_tts_timer_done">Timer abgelaufen</string>
+    <string name="label_custom_tts_text">Eigener TTS-Text</string>
+    <string name="hint_custom_tts_text">z.B. "Aufwachen! Es ist %time%"</string>
+    <string name="desc_tts_variables" formatted="false">Verfügbare Variablen: %label%, %day%, %time%</string>
+    <string name="label_tts_frequency">TTS-Häufigkeit</string>
 
     <!-- Ringing Screen -->
     <string name="label_alarm">Wecker</string>
@@ -195,23 +199,23 @@
 
     <!-- Settings & Advanced -->
     <string name="title_settings">Einstellungen</string>
-    <string name="header_alarm_settings">Wecker-Einstellungen</string>
-    <string name="header_timer_settings">Timer-Einstellungen</string>
+    <string name="header_alarm_settings">Weckereinstellungen</string>
+    <string name="header_timer_settings">Timereinstellungen</string>
     <string name="header_appearance">Erscheinungsbild</string>
     <string name="section_presets">Voreinstellungen</string>
     <string name="section_theme">Design</string>
     <string name="section_general">Allgemein</string>
     <string name="label_quick_adjust_buttons">Schnellanpassungs-Buttons</string>
-    <string name="label_timer_presets">Timer-Presets</string>
+    <string name="label_timer_presets">Timer Presets</string>
     <string name="label_follow_system">System folgen</string>
     <string name="label_dark_mode">Dunkles Design</string>
-    <string name="label_pure_black">Tiefschwarz-Modus</string>
+    <string name="label_pure_black">Tiefschwarzer Modus</string>
     <string name="desc_pure_black">Gut für OLED-Bildschirme</string>
     <string name="settings_black_mode_subtext">Wird nur bei aktivem dunklem Design angewendet.</string>
     <string name="label_ringing_mode">Klingelmodus</string>
     <string name="setting_ringing_mode">Klingelmodus</string>
     <string name="mode_easy">Einfach (Buttons)</string>
-    <string name="mode_clean">Sauber (Joystick)</string>
+    <string name="mode_clean">Clean (Joystick)</string>
     <string name="mode_default">Standard (Global folgen)</string>
     <string name="label_background">Hintergrund</string>
     <string name="bg_type_color">Einfarbig</string>

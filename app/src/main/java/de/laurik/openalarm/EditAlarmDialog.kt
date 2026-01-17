@@ -39,6 +39,7 @@ fun EditAlarmDialog(
     var customVolume by remember { mutableStateOf(alarm.customVolume) }
     var fadeInSeconds by remember { mutableIntStateOf(alarm.fadeInSeconds) }
     var ttsMode by remember { mutableStateOf(alarm.ttsMode) }
+    var ttsText by remember { mutableStateOf(alarm.ttsText ?: "") }
     var isSingleUse by remember { mutableStateOf(alarm.isSingleUse) }
     var isSelfDestroying by remember { mutableStateOf(alarm.isSelfDestroying) }
 
@@ -137,6 +138,8 @@ fun EditAlarmDialog(
                                     onFadeInChange = { fadeInSeconds = it },
                                     ttsMode = ttsMode,
                                     onTtsModeChange = { ttsMode = it },
+                                    ttsText = ttsText,
+                                    onTtsTextChange = { ttsText = it },
                                     isSingleUse = isSingleUse,
                                     onSingleUseChange = {
                                         isSingleUse = it
@@ -314,6 +317,7 @@ fun EditAlarmDialog(
                                                 customVolume = customVolume,
                                                 fadeInSeconds = fadeInSeconds,
                                                 ttsMode = ttsMode,
+                                                ttsText = ttsText.ifBlank { null },
                                                 groupId = selectedGroupId,
                                                 snoozeDuration = snoozeOverride,
                                                 autoStopDuration = autoStopOverride,
