@@ -179,7 +179,7 @@ object AlarmUtils {
 
         if (nextAlarmTime == null) return null
 
-        val cNext = Calendar.getInstance().apply { timeInMillis = nextAlarmTime!! }
+        val cNext = Calendar.getInstance().apply { timeInMillis = nextAlarmTime }
         val timeStr = String.format("%02d:%02d", cNext.get(Calendar.HOUR_OF_DAY), cNext.get(Calendar.MINUTE))
         val hoursLeft = minDiff / (1000 * 60 * 60)
         val minsLeft = (minDiff / (1000 * 60)) % 60
@@ -191,7 +191,7 @@ object AlarmUtils {
             context.getString(R.string.fmt_countdown_short, hoursLeft, minsLeft)
         }
 
-        return NextAlarmInfo(timeStr, countdownStr, nextAlarmTime!!)
+        return NextAlarmInfo(timeStr, countdownStr, nextAlarmTime)
     }
 
     // Kept for backward compatibility if any older layouts use it
