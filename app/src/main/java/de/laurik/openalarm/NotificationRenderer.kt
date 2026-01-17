@@ -300,8 +300,12 @@ object NotificationRenderer {
             PendingIntent.getBroadcast(context, id * 10, finalStopIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         }
 
-        val snoozeIntent = Intent(context, RingtoneService::class.java).apply { action = "SNOOZE_1" }
-        val snoozePending = PendingIntent.getService(context, id * 20, snoozeIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val snoozeIntent = Intent(context, RingtoneService::class.java).apply { 
+            action = "SNOOZE_1"
+            putExtra("ALARM_ID", id)
+            putExtra("TARGET_ID", id)
+        }
+        val snoozePending = PendingIntent.getService(context, id * 20 + 20000, snoozeIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
         val customView = RemoteViews(context.packageName, config.layoutId)
         customView.setOnClickPendingIntent(R.id.btn_stop, stopPending)
@@ -378,7 +382,8 @@ object NotificationRenderer {
         } else if (config.channelId == "ACTIVE_TIMER_CHANNEL_ID"){
             builder.setPriority(NotificationCompat.PRIORITY_HIGH)
         } else {
-            builder.setPriority(NotificationCompat.PRIORITY_LOW)
+            // Interrupted/Silent Alarms use STATUS_CHANNEL_ID
+            builder.setPriority(NotificationCompat.PRIORITY_DEFAULT)
         }
         if (actuallyRinging) {
             builder.setFullScreenIntent(fullScreenPending, true)

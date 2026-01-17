@@ -139,6 +139,7 @@ class AlarmScheduler(private val context: Context) {
             snoozeUntil = null,
             currentSnoozeCount = 0,
             temporaryOverrideTime = null,
+            lastTriggerTime = 0L,
             skippedUntil = if (shouldSkip) finalSkipTime else alarm.skippedUntil,
             isEnabled = if (alarm.isSingleUse) false else alarm.isEnabled
         )

@@ -364,9 +364,23 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
     private fun handleStopAction(intent: Intent) {
         val targetId = intent.getIntExtra("TARGET_ID", -1)
+        logger.d(TAG, "Handling STOP action for targetId: $targetId (currentRingingId: $currentRingingId)")
 
         if (targetId != -1 && targetId != currentRingingId) {
             logger.d(TAG, "Stopping background ID: $targetId")
+
+            // Remove from interrupted queue
+            val removed = InternalDataStore.interruptedItems.removeAll { it.id == targetId }
+            if (removed) {
+                serviceScope.launch {
+                    try {
+                        val item = InterruptedItem(id = targetId, type = "ALARM", label = "", timestamp = 0)
+                        AppDatabase.getDatabase(applicationContext).alarmDao().deleteInterrupted(item)
+                    } catch (e: Exception) {
+                        logger.e(TAG, "Error removing from DB", e)
+                    }
+                }
+            }
 
             val alarm = AlarmRepository.getAlarm(targetId)
             if (alarm != null) {
@@ -374,8 +388,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 return
             }
 
-            // If not an alarm, treat as timer
-            AlarmRepository.removeTimer(this, targetId)
+
             timeoutJobs[targetId]?.cancel()
             timeoutJobs.remove(targetId)
 
@@ -466,18 +479,39 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             val snoozeTime = System.currentTimeMillis() + snoozeMins * 60 * 1000
 
             // Update alarm with snooze info
-            val updated = alarm.copy(
-                snoozeUntil = snoozeTime,
-                currentSnoozeCount = alarm.currentSnoozeCount + 1
-            )
-            AlarmRepository.updateAlarm(this, updated)
+                val updated = alarm.copy(
+                    snoozeUntil = snoozeTime,
+                    currentSnoozeCount = alarm.currentSnoozeCount + 1
+                )
+                AlarmRepository.updateAlarm(this, updated)
+
+                logger.d(TAG, "Snoozing alarm ID=${alarm.id} until $snoozeTime (Count: ${updated.currentSnoozeCount})")
 
             // Schedule ONLY the snooze time
             val scheduler = AlarmScheduler(this)
             scheduler.scheduleExact(snoozeTime, alarm.id, "ALARM", alarm.label)
 
-            // Stop current ringing
-            stopCurrentRinging(false, true)
+            // Stop current ringing OR background item
+            if (alarm.id == currentRingingId) {
+                stopCurrentRinging(false, true)
+            } else {
+                logger.d(TAG, "Snoozing background item ID=${alarm.id}")
+                timeoutJobs[alarm.id]?.cancel()
+                timeoutJobs.remove(alarm.id)
+                
+                val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                nm.cancel(alarm.id)
+                
+                InternalDataStore.interruptedItems.removeAll { it.id == alarm.id }
+                serviceScope.launch {
+                    try {
+                        val item = InterruptedItem(id = alarm.id, type = "ALARM", label = "", timestamp = 0)
+                        AppDatabase.getDatabase(applicationContext).alarmDao().deleteInterrupted(item)
+                    } catch (e: Exception) {
+                        logger.e(TAG, "Error removing background snooze from DB", e)
+                    }
+                }
+            }
 
             // Trigger status & notification
             StatusHub.trigger(StatusEvent.Snoozed(alarm.id, "ALARM", snoozeTime))
@@ -493,8 +527,19 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun handleSnoozeAction(intent: Intent) {
-        if (currentRingingId == -1) return
-        val alarm = AlarmRepository.getAlarm(currentRingingId) ?: return
+        val targetId = intent.getIntExtra("ALARM_ID", -1).takeIf { it != -1 }
+            ?: intent.getIntExtra("TARGET_ID", -1).takeIf { it != -1 }
+            ?: currentRingingId
+
+        if (targetId == -1) {
+            logger.w(TAG, "handleSnoozeAction: No valid ID found")
+            return
+        }
+        
+        val alarm = AlarmRepository.getAlarm(targetId) ?: run {
+            logger.w(TAG, "handleSnoozeAction: Alarm $targetId not found")
+            return
+        }
 
         val customMins = if (intent.action == "SNOOZE_CUSTOM") intent.getIntExtra("MINUTES", 10) else null
         handleSnooze(alarm, customMins)
