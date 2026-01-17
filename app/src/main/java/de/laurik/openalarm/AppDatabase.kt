@@ -2,6 +2,8 @@ package de.laurik.openalarm
 
 import android.content.Context
 import androidx.room.*
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 // 1. TYPE CONVERTERS (To save Lists and Enums)
 class Converters {
@@ -125,10 +127,21 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "openalarm_db"
-                ).fallbackToDestructiveMigration()
-                 .build()
+                )
+                    .addMigrations(MIGRATION_1_2)
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
+            }
+        }
+
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add the new column as nullable
+                db.execSQL(
+                    "ALTER TABLE alarms ADD COLUMN ttsText TEXT"
+                )
             }
         }
     }
