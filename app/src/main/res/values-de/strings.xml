@@ -1,8 +1,8 @@
 <resources>
     <!-- App & Common -->
     <string name="app_name">OpenAlarm</string>
-    <string name="action_stop">Stopp</string>
-    <string name="action_stop_caps">STOPP</string>
+    <string name="action_stop">Stop</string>
+    <string name="action_stop_caps">STOP</string>
     <string name="action_cancel">Abbrechen</string>
     <string name="action_save">Speichern</string>
     <string name="action_reset">Zurücksetzen</string>
@@ -119,7 +119,7 @@
     <string name="action_add_1m">+1 Min.</string>
     <string name="action_add_5m">+5 Min.</string>
     <string name="desc_snooze">Schlummern</string>
-    <string name="desc_stop">Stopp</string>
+    <string name="desc_stop">Stop</string>
     <string name="snooze_10_min">+10 Min.</string>
     <string name="action_add_minutes">+%1$s Min.</string>
     <string name="action_custom_time">Eigene Zeit</string>
@@ -177,19 +177,19 @@
     <string name="fmt_duration_m">%1$d Min.</string>
     <string name="fmt_duration_s">%1$d Sek.</string>
     <string name="fmt_duration_0s">0 Sek.</string>
-    <string name="fmt_countdown_long">in %1$dStd %2$dMin %3$dSek</string>
-    <string name="fmt_countdown_short">in %1$dStd %2$dMin</string>
-    <string name="fmt_d_h">%1$dT %2$dStd</string>
-    <string name="fmt_h_m">%1$dStd %2$dMin</string>
-    <string name="fmt_m_s">%1$dMin %2$dSek</string>
-    <string name="fmt_s">%1$dSek</string>
+    <string name="fmt_countdown_long">in %1$d Std %2$d Min %3$d Sek</string>
+    <string name="fmt_countdown_short">in %1$d Std %2$d Min</string>
+    <string name="fmt_d_h">%1$d T %2$d Std</string>
+    <string name="fmt_h_m">%1$dStd %2$d Min</string>
+    <string name="fmt_m_s">%1$d Min %2$d Sek</string>
+    <string name="fmt_s">%1$d Sek</string>
     <string name="fmt_skipped_tomorrow">Morgen %1$s</string>
     <string name="fmt_skipped_short">%1$s %2$s</string>
     <string name="fmt_skipped_long">%1$s %2$d.%3$d. %4$s</string>
     <string name="status_skipped_tomorrow">Morgen übersprungen</string>
     <string name="status_skipped_until">Übersprungen bis %1$s</string>
     <string name="label_minutes_fmt">%1$d Min.</string>
-    <string name="fmt_minutes_short">%1$dm</string>
+    <string name="fmt_minutes_short">%1$d m</string>
     <string name="tts_time_announce">Es ist %1$s</string>
     <string name="fmt_time_printf">%1$02d:%2$02d</string>
 
@@ -223,10 +223,10 @@
     <string name="label_add_minutes_short">+%1$dm</string>
     <string name="label_snooze_presets">Schlummer-Presets (Minuten)</string>
     <string name="label_default_snooze">Standard-Schlummerdauer</string>
-    <string name="label_default_timeout">Standard-Auto-Stopp-Limit</string>
+    <string name="label_default_timeout">Standard-Timeout-Limit</string>
     <string name="label_use_global_default">Standard verwenden (%1$d Min.)</string>
     <string name="label_snooze_duration">Schlummerdauer</string>
-    <string name="label_auto_stop">Zeitlimit</string>
+    <string name="label_auto_stop">Timeout</string>
     <string name="label_notify_before">Vor dem Klingeln benachrichtigen</string>
     <string name="desc_notify_before">Zeigt eine Benachrichtigung eine festgelegte Zeit vor dem Wecktermin an</string>
     <string name="label_notification_time">Benachrichtigungszeit:</string>
@@ -266,7 +266,7 @@
     <string name="title_default_alarm_settings">Standard-Wecker-Einstellungen</string>
     <string name="desc_default_alarm_settings">Vorgabewerte für neue Wecker</string>
     <string name="title_ringing_screen_settings">Weckbildschirm-Einstellungen</string>
-    <string name="title_timer_auto_stop">Timer-Zeitlimit</string>
+    <string name="title_timer_auto_stop">Timer-Timeout</string>
     <string name="title_notify_before">Benachrichtigung vor Klingeln</string>
     <string name="title_edit_adjust_presets">Anpassungsbuttons (Minuten)</string>
     <string name="title_edit_timer_presets">Timer-Presets (Minuten)</string>
@@ -274,13 +274,13 @@
     <string name="title_set_snooze">Schlummerdauer festlegen (Min.)</string>
     <string name="title_set_timeout">Zeitlimit festlegen (Min.)</string>
     <string name="dialog_title_snooze_duration">Schlummerdauer</string>
-    <string name="dialog_title_auto_stop_timeout">Auto-Stopp-Limit</string>
+    <string name="dialog_title_auto_stop_timeout">Timeout</string>
     <string name="dialog_title_max_snooze_count">Max. Schlummervorgänge</string>
     <string name="label_unlimited">Unbegrenzt</string>
     <string name="action_set_unlimited">Auf Unbegrenzt setzen</string>
     <string name="dialog_title_snooze_presets">Schlummer-Auswahl-Optionen</string>
     <string name="dialog_title_default_snooze">Standard-Schlummern</string>
-    <string name="dialog_title_default_auto_stop">Standard-Auto-Stopp</string>
+    <string name="dialog_title_default_auto_stop">Standard-Timeout</string>
     <string name="dialog_title_default_max_snoozes">Standard-Schlummervorgänge</string>
     <string name="dialog_title_default_snooze_presets">Standard-Schlummeroptionen</string>
     <string name="label_default">Standard</string>
@@ -290,7 +290,7 @@
     <string name="title_adjust_next">Nächsten Wecktermin anpassen</string>
     <string name="title_set_time">Zeit einstellen</string>
     <string name="title_set_timer">Timer einstellen</string>
-    <string name="toast_alarm_stopped">Wecker gestoppt</string>
+    <string name="toast_alarm_stopped">Wecker gestopt</string>
     <string name="toast_alarm_auto_stopped">Zeitlimit für Wecker erreicht</string>
-    <string name="toast_timer_stopped">Timer gestoppt</string>
+    <string name="toast_timer_stopped">Timer gestopt</string>
 </resources>
