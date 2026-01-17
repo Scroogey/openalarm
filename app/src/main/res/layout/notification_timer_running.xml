@@ -5,7 +5,8 @@
     android:layout_height="64dp"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:background="#121212">
+    android:baselineAligned="false"
+    android:background="@android:color/transparent">
 
     <!-- Text Area -->
     <LinearLayout

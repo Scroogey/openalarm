@@ -219,9 +219,9 @@ class AlarmReceiver : BroadcastReceiver() {
         logger.d(TAG, "Starting ringing service for ID: $id")
 
         val type = intent.getStringExtra("ALARM_TYPE") ?: if (id > 1000) "TIMER" else "ALARM"
-        val resolvedType = when (type) {
-            "SNOOZE", "SOFT", "REGULAR", "CRITICAL" -> "ALARM"
-            else -> type
+        val resolvedType = when {
+            type.equals("TIMER", ignoreCase = true) -> "TIMER"
+            else -> "ALARM"
         }
 
         val label = intent.getStringExtra("ALARM_LABEL") ?: ""

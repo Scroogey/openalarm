@@ -100,7 +100,17 @@ object NotificationRenderer {
             putExtra("ALARM_TYPE", type)
             putExtra("ALARM_ID", id)
             putExtra("ALARM_LABEL", label)
-            setData(android.net.Uri.parse("custom://$type/$id"))
+            
+            val t = if (type == "TIMER") AlarmRepository.getTimer(id) else null
+            if (t != null) {
+                putExtra("START_TIME", t.endTime)
+            } else if (type == "TIMER") {
+                putExtra("START_TIME", triggerTime)
+            } else if (type == "ALARM") {
+                putExtra("START_TIME", triggerTime)
+            }
+            
+            data = android.net.Uri.parse("custom://${type.lowercase()}/$id")
         }
 
         val fullScreenPending = PendingIntent.getActivity(
@@ -111,6 +121,8 @@ object NotificationRenderer {
         val stopIntent = Intent(context, RingtoneService::class.java).apply {
             action = "STOP_RINGING"
             putExtra("TARGET_ID", id)
+            putExtra("ALARM_ID", id)
+            putExtra("ALARM_TYPE", type)
         }
         val stopPending = PendingIntent.getService(context, id, stopIntent, PendingIntent.FLAG_IMMUTABLE)
 
@@ -160,6 +172,9 @@ object NotificationRenderer {
 
         if (type == "TIMER") {
             val presets = SettingsRepository.getInstance(context).timerAdjustPresets.value
+            val btnIds = listOf(R.id.btn_add_1, R.id.btn_add_2)
+            val txtIds = listOf(R.id.txt_add_1, R.id.txt_add_2)
+            
             presets.forEachIndexed { index, seconds ->
                 val addIntent = Intent(context, RingtoneService::class.java).apply {
                     action = "ADD_TIME"
@@ -167,7 +182,21 @@ object NotificationRenderer {
                     putExtra("SECONDS", seconds)
                 }
                 val p = PendingIntent.getService(context, id * 30 + 100 + index, addIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                
+                // Populate custom view buttons
+                if (index < btnIds.size) {
+                    customView.setViewVisibility(btnIds[index], android.view.View.VISIBLE)
+                    customView.setTextViewText(txtIds[index], context.getString(R.string.label_add_minutes_short, seconds/60))
+                    customView.setOnClickPendingIntent(btnIds[index], p)
+                }
+                
+                // Add standard action as fallback/addition
                 builder.addAction(0, context.getString(R.string.label_add_minutes_short, seconds / 60), p)
+            }
+            
+            // Hide unused
+            for (i in presets.size until btnIds.size) {
+                customView.setViewVisibility(btnIds[i], android.view.View.GONE)
             }
         }
 
@@ -238,14 +267,19 @@ object NotificationRenderer {
                     baseTime = SystemClock.elapsedRealtime() - timeSinceFinish
                 )
             }
-            type == "TIMER" && !isVirtuallyDone && timer != null -> {
+            type == "TIMER" -> {
+                // If it's a timer, it should ALWAYS use the timer color (Orange), 
+                // to avoid the sudden grey flip or missed-alarm look.
+                val t = timer ?: AlarmRepository.getTimer(id)
+                val VirtuallyDone = t != null && (now + 250 >= t.endTime)
+                
                 NotifConfig(
                     layoutId = R.layout.notification_timer_running,
                     color = AlarmRepository.TIMER_RUNNING_COLOR,
-                    title = context.getString(R.string.notif_timer_running),
+                    title = if (t != null) context.getString(R.string.notif_timer_running) else context.getString(R.string.notif_timer_done),
                     channelId = "ACTIVE_TIMER_CHANNEL_ID",
-                    isChronometerCountDown = true,
-                    baseTime = SystemClock.elapsedRealtime() + (timer.endTime - now)
+                    isChronometerCountDown = (t != null && !VirtuallyDone),
+                    baseTime = if (t == null || VirtuallyDone) SystemClock.elapsedRealtime() else SystemClock.elapsedRealtime() + (t.endTime - now)
                 )
             }
             type == "ALARM" -> {
@@ -284,7 +318,7 @@ object NotificationRenderer {
             val alarm = AlarmRepository.getAlarm(id)
             putExtra("ALARM_LABEL", labelOverride ?: alarm?.label ?: "")
             if (timer != null) putExtra("START_TIME", timer.endTime - timer.totalDuration)
-            setData(android.net.Uri.parse("custom://timer/$id"))
+            setData(android.net.Uri.parse("custom://${type.lowercase()}/$id"))
         }
         val fullScreenPending = PendingIntent.getActivity(context, id + 14000, fullScreenIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
@@ -360,6 +394,7 @@ object NotificationRenderer {
 
         val builder = NotificationCompat.Builder(context, config.channelId)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setAutoCancel(false)
@@ -382,7 +417,6 @@ object NotificationRenderer {
         } else if (config.channelId == "ACTIVE_TIMER_CHANNEL_ID"){
             builder.setPriority(NotificationCompat.PRIORITY_HIGH)
         } else {
-            // Interrupted/Silent Alarms use STATUS_CHANNEL_ID
             builder.setPriority(NotificationCompat.PRIORITY_DEFAULT)
         }
         if (actuallyRinging) {

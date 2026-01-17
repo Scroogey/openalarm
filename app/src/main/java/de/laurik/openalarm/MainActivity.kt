@@ -395,10 +395,11 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
                             .padding(vertical = 4.dp)
                             .clickable {
                                 val intent = Intent(context, RingActivity::class.java).apply {
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
                                     putExtra("ALARM_TYPE", "TIMER")
                                     putExtra("ALARM_ID", timer.id)
                                     putExtra("START_TIME", timer.endTime - timer.totalDuration)
-                                    setData(Uri.parse("custom://TIMER/${timer.id}"))
+                                    setData(android.net.Uri.parse("custom://timer/${timer.id}"))
                                 }
                                 context.startActivity(intent)
                             },

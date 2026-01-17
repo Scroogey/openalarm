@@ -108,7 +108,13 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         // Immediate Foreground
         if (id != -1 && (action == null || action == "START_ALARM")) {
             if (currentRingingId == -1) {
-                val type = intent.getStringExtra("ALARM_TYPE") ?: "ALARM"
+                var type = intent.getStringExtra("ALARM_TYPE") ?: if (id > 1000) "TIMER" else "ALARM"
+                // Cleanup alarm subtypes
+                type = when(type) {
+                    "SNOOZE", "SOFT", "REGULAR", "CRITICAL" -> "ALARM"
+                    else -> type
+                }
+                
                 val label = intent.getStringExtra("ALARM_LABEL") ?: ""
                 val triggerTime = intent.getLongExtra("TRIGGER_TIME", System.currentTimeMillis())
 
@@ -152,7 +158,12 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
     private fun handleStartRequest(intent: Intent) {
         val newId = intent.getIntExtra("ALARM_ID", -1)
-        val newType = intent.getStringExtra("ALARM_TYPE") ?: "ALARM"
+        var newType = intent.getStringExtra("ALARM_TYPE") ?: if (newId > 1000) "TIMER" else "ALARM"
+        // Cleanup subtypes
+        newType = when(newType) {
+            "SNOOZE", "SOFT", "REGULAR", "CRITICAL" -> "ALARM"
+            else -> newType
+        }
         val label = intent.getStringExtra("ALARM_LABEL") ?: ""
         val triggerTime = intent.getLongExtra("TRIGGER_TIME", System.currentTimeMillis())
 
@@ -211,6 +222,8 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun startRingingSession(id: Int, type: String, label: String, triggerTime: Long) {
+        StatusHub.trigger(StatusEvent.Ringing(id, type))
+        
         currentRingingId = id
         currentType = type
         AlarmRepository.setCurrentRingingId(id)
@@ -240,13 +253,17 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
         // Activity
         val fullScreenIntent = Intent(this, RingActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or 
+                   Intent.FLAG_ACTIVITY_NO_USER_ACTION or 
+                   Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                   Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("ALARM_TYPE", type)
             putExtra("ALARM_ID", id)
             putExtra("ALARM_LABEL", label)
             putExtra("START_TIME", triggerTime)
-            data = "custom://$type/$id".toUri()
+            data = android.net.Uri.parse("custom://${type.lowercase()}/$id")
         }
+        
         // Acquire a short screen wake lock to reliably wake the display (10s)
         try {
             screenWakeLock?.let {
@@ -256,8 +273,6 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             logger.e(TAG, "Failed to acquire screen wake lock", e)
         }
         startActivity(fullScreenIntent)
-
-        StatusHub.trigger(StatusEvent.Ringing(id, type))
     }
 
     // --- TIMEOUT LOGIC ---
@@ -364,7 +379,6 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
     private fun handleStopAction(intent: Intent) {
         val targetId = intent.getIntExtra("TARGET_ID", -1)
-        logger.d(TAG, "Handling STOP action for targetId: $targetId (currentRingingId: $currentRingingId)")
 
         if (targetId != -1 && targetId != currentRingingId) {
             logger.d(TAG, "Stopping background ID: $targetId")
@@ -559,10 +573,28 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             timeoutJobs[targetId]?.cancel()
             timeoutJobs.remove(targetId)
 
+            val runningNote = NotificationRenderer.createNotification(this, targetId, "TIMER", isRinging = false)
+            startForeground(targetId, runningNote)
+
+            currentRingingId = -1
+            currentType = "NONE"
             AlarmRepository.setCurrentRingingId(-1)
+            
+            // Start TimerRunningService to take over the foreground notification
+            val svc = Intent(this, TimerRunningService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(svc)
+            } else {
+                startService(svc)
+            }
+            
             StatusHub.trigger(StatusEvent.Extended(targetId, "TIMER", newEnd))
             checkQueueAndResume()
         }
+        
+        // Reschedule in AlarmManager
+        AlarmScheduler(this).scheduleExact(newEnd, targetId, "TIMER")
+        
         NotificationRenderer.refreshAll(this)
     }
 

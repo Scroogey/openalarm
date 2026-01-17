@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -15,6 +16,7 @@ import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
@@ -42,6 +44,9 @@ class RingActivity : ComponentActivity() {
     private var currentId by mutableStateOf(-1)
     private var currentStartTime by mutableLongStateOf(System.currentTimeMillis())
     private var currentLabel by mutableStateOf("")
+    private var isRepoLoaded by mutableStateOf(false)
+    
+    private val TAG = "RingActivity"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         turnScreenOnAndKeyguardOff()
@@ -52,6 +57,7 @@ class RingActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             AlarmRepository.ensureLoaded(this@RingActivity)
+            isRepoLoaded = true
         }
 
         handleIntent(intent)
@@ -59,10 +65,25 @@ class RingActivity : ComponentActivity() {
         setContent {
             val event = StatusHub.lastEvent
 
+            BackHandler {
+                val intent = Intent(this@RingActivity, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                startActivity(intent)
+                finish()
+            }
+
             LaunchedEffect(event) {
                 when (event) {
-                    is StatusEvent.Stopped -> if (event.id == currentId || event.id == -1) finish()
-                    is StatusEvent.Extended -> if (event.id == currentId && currentType != "TIMER") finish()
+                    is StatusEvent.Stopped -> {
+                        if (event.id == currentId || event.id == -1) {
+                            // Only finish if it's NOT a Ringing event for the same ID.
+                            // But StatusHub only holds the LAST event.
+                            // If RingtoneService correctly triggers Ringing before finish, we are safe.
+                            finish()
+                        }
+                    }
+                    is StatusEvent.Extended -> if (event.id == currentId && !currentType.equals("TIMER", ignoreCase = true)) finish()
                     is StatusEvent.Timeout -> if (event.id == currentId) finish()
                     is StatusEvent.Snoozed -> if (event.id == currentId) finish()
                     else -> {}
@@ -72,12 +93,19 @@ class RingActivity : ComponentActivity() {
             MaterialTheme {
                 val alarm = remember(currentId) { AlarmRepository.getAlarm(currentId) }
                 
-                if (currentType == "TIMER") {
+                if (currentType.equals("TIMER", ignoreCase = true)) {
                     TimerRingingScreen(
                         startTime = currentStartTime,
                         timerId = currentId,
                         onStop = { stopTimerCommand(currentId) },
-                        onAdd = { addTimeCommand(it) }
+                        onAdd = { addTimeCommand(it) },
+                        onBack = {
+                            val intent = Intent(this@RingActivity, MainActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                            }
+                            startActivity(intent)
+                            finish()
+                        }
                     )
                 } else {
                     AlarmRingingScreen(
@@ -107,10 +135,11 @@ class RingActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent) {
-        val newType = intent.getStringExtra("ALARM_TYPE") ?: "ALARM"
         val newId = intent.getIntExtra("ALARM_ID", -1)
-        val newLabel = intent.getStringExtra("ALARM_LABEL") ?: ""
+        var newType = intent.getStringExtra("ALARM_TYPE") ?: if (newId > 1000) "TIMER" else "ALARM"
 
+        val newLabel = intent.getStringExtra("ALARM_LABEL") ?: ""
+        
         currentType = newType
         currentId = newId
         currentLabel = newLabel
@@ -122,14 +151,21 @@ class RingActivity : ComponentActivity() {
 
     private fun stopServiceCommand(targetId: Int) {
         val intent = Intent(this, RingtoneService::class.java).apply {
-            action = "STOP_RINGING"; putExtra("TARGET_ID", targetId)
+            action = "STOP_RINGING"
+            putExtra("TARGET_ID", targetId)
+            putExtra("ALARM_ID", targetId)
+            putExtra("ALARM_TYPE", currentType)
         }
         startService(intent)
     }
 
     private fun stopTimerCommand(timerId: Int) {
         val intent = Intent(this, AlarmReceiver::class.java).apply {
-            action = "STOP_SPECIFIC_TIMER"; putExtra("TIMER_ID", timerId)
+            action = "STOP_SPECIFIC_TIMER"
+            putExtra("TIMER_ID", timerId)
+            putExtra("TARGET_ID", timerId)
+            putExtra("ALARM_ID", timerId)
+            putExtra("ALARM_TYPE", "TIMER")
         }
         sendBroadcast(intent)
         finish()
@@ -185,7 +221,7 @@ class RingActivity : ComponentActivity() {
 }
 
 @Composable
-fun TimerRingingScreen(startTime: Long, timerId: Int, onStop: () -> Unit, onAdd: (Int) -> Unit) {
+fun TimerRingingScreen(startTime: Long, timerId: Int, onStop: () -> Unit, onAdd: (Int) -> Unit, onBack: () -> Unit) {
     val timerItem = AlarmRepository.activeTimers.find { it.id == timerId }
     val trueEndTime = timerItem?.endTime ?: startTime
     val context = LocalContext.current
@@ -220,39 +256,50 @@ fun TimerRingingScreen(startTime: Long, timerId: Int, onStop: () -> Unit, onAdd:
             delay(500)
         }
     }
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(bgColor)
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(titleText, color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
-        Text("($durationText)", color = Color.White.copy(alpha = 0.7f), fontSize = 20.sp)
-        Spacer(Modifier.height(32.dp))
-        Text(countUpStr, color = Color.White, fontSize = 90.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(64.dp))
-
-        Button(
-            onClick = onStop,
-            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-            modifier = Modifier.fillMaxWidth().height(64.dp)
+    Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+                .statusBarsPadding()
         ) {
-            Text(stringResource(R.string.action_stop_caps), fontSize = 24.sp, color = Color.Red)
+            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
         }
-        val settingsRepo = remember { SettingsRepository.getInstance(context) }
-        val adjustPresets by settingsRepo.timerAdjustPresets.collectAsState(initial = listOf(60, 300))
 
-        Text(stringResource(R.string.label_add_time), color = Color.White)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            adjustPresets.forEach { seconds ->
-                OutlinedButton(
-                    onClick = { onAdd(seconds) },
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                ) {
-                    Text("+${seconds / 60}m", color = Color.White)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(titleText, color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            Text("($durationText)", color = Color.White.copy(alpha = 0.7f), fontSize = 20.sp)
+            Spacer(Modifier.height(32.dp))
+            Text(countUpStr, color = Color.White, fontSize = 90.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(64.dp))
+
+            Button(
+                onClick = onStop,
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                modifier = Modifier.fillMaxWidth().height(64.dp)
+            ) {
+                Text(stringResource(R.string.action_stop_caps), fontSize = 24.sp, color = Color.Red)
+            }
+            val settingsRepo = remember { SettingsRepository.getInstance(context) }
+            val adjustPresets by settingsRepo.timerAdjustPresets.collectAsState(initial = listOf(60, 300))
+
+            Text(stringResource(R.string.label_add_time), color = Color.White)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                adjustPresets.forEach { seconds ->
+                    OutlinedButton(
+                        onClick = { onAdd(seconds) },
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    ) {
+                        Text("+${seconds / 60}m", color = Color.White)
+                    }
                 }
             }
         }
