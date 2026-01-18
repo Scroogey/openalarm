@@ -184,7 +184,7 @@
     <string name="fmt_countdown_long">in %1$d Std %2$d Min %3$d Sek</string>
     <string name="fmt_countdown_short">in %1$d Std %2$d Min</string>
     <string name="fmt_d_h">%1$d T %2$d Std</string>
-    <string name="fmt_h_m">%1$dStd %2$d Min</string>
+    <string name="fmt_h_m">%1$d Std %2$d Min</string>
     <string name="fmt_m_s">%1$d Min %2$d Sek</string>
     <string name="fmt_s">%1$d Sek</string>
     <string name="fmt_skipped_tomorrow">Morgen %1$s</string>
