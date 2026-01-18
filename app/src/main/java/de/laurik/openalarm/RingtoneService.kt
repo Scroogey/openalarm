@@ -129,7 +129,10 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             }
         }
 
+        // WakeLock Early Acquisition (Crucial for screen WAKEUP speed)
+        // We acquire it immediately to prevent doze re-entry while loading repo.
         if (wakeLock?.isHeld == false) wakeLock?.acquire(10 * 60 * 1000L) // 10 min max
+
 
         serviceScope.launch {
             logger.d(TAG, "Ensuring repository is loaded...")
@@ -137,6 +140,19 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             AlarmRepository.ensureLoaded(applicationContext)
             val loadDuration = System.currentTimeMillis() - startTime
             logger.d(TAG, "Repository loaded in ${loadDuration}ms. Handling intent.")
+            
+            // Re-acquire screen wake lock here (after data load) to ensure content is ready
+            // IF we are starting an alarm.
+            if (id != -1 && (action == "START_ALARM" || action == null)) {
+                 try {
+                    screenWakeLock?.let {
+                        if (!it.isHeld) it.acquire(10_000L)
+                    }
+                } catch (e: Exception) {
+                    logger.e(TAG, "Failed to acquire screen wake lock", e)
+                }
+            }
+            
             handleIntent(intent)
         }
 
@@ -232,7 +248,9 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
         // Remove the silent ringing notification if it exists (for queued alarms)
         val nm = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
-        nm.cancel(id)
+        // DO NOT cancel the ID here if we are about to startForeground with the SAME ID.
+        // Canceling it might interrupt the Full Screen Intent launch or cause flickering.
+        // nm.cancel(id) 
 
         // Update the foreground service notification
         val notification = NotificationRenderer.buildRingingNotification(
@@ -271,7 +289,12 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         } catch (e: Exception) {
             logger.e(TAG, "Failed to acquire screen wake lock", e)
         }
-        startActivity(fullScreenIntent)
+        
+        try {
+            startActivity(fullScreenIntent)
+        } catch (e: Exception) {
+            logger.e(TAG, "Failed to manually start RingActivity", e)
+        }
     }
 
     // --- TIMEOUT LOGIC ---
