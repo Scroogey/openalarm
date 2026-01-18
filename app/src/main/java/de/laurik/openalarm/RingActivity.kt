@@ -45,8 +45,6 @@ class RingActivity : ComponentActivity() {
     private var currentStartTime by mutableLongStateOf(System.currentTimeMillis())
     private var currentLabel by mutableStateOf("")
     private var isRepoLoaded by mutableStateOf(false)
-    
-    private val TAG = "RingActivity"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         turnScreenOnAndKeyguardOff()
@@ -136,10 +134,10 @@ class RingActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent) {
         val newId = intent.getIntExtra("ALARM_ID", -1)
-        var newType = intent.getStringExtra("ALARM_TYPE") ?: if (newId > 1000) "TIMER" else "ALARM"
+        val newType = intent.getStringExtra("ALARM_TYPE") ?: if (newId > 1000) "TIMER" else "ALARM"
 
         val newLabel = intent.getStringExtra("ALARM_LABEL") ?: ""
-        
+
         currentType = newType
         currentId = newId
         currentLabel = newLabel

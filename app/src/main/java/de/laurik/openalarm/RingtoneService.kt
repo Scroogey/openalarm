@@ -12,7 +12,6 @@ import android.os.*
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
-import androidx.compose.foundation.lazy.layout.PrefetchScheduler
 import androidx.core.net.toUri
 import de.laurik.openalarm.utils.AppLogger
 import kotlinx.coroutines.*
