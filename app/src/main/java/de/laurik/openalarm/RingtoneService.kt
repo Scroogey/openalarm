@@ -909,8 +909,14 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
     private suspend fun startTtsLoop(mode: TtsMode, customText: String, volume: Float) {
         var attempts = 0
-        while (!isTtsReady && attempts < 20) { delay(200); attempts++ }
-        if (!isTtsReady || tts == null) return
+        while (!isTtsReady && attempts < 50) {
+            delay(200)
+            attempts++
+        }
+        if (!isTtsReady || tts == null) {
+            logger.e(TAG, "TTS not ready after $attempts attempts. isTtsReady=$isTtsReady")
+            return
+        }
 
         val params = Bundle()
         params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, volume)
@@ -1068,7 +1074,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 isTtsReady = true
             }
         } else {
-            logger.e(TAG, "TTS Init failed")
+            logger.e(TAG, "TTS Init failed with status: $status")
             isTtsReady = false
         }
     }

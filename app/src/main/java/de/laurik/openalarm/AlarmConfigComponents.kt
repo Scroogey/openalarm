@@ -134,6 +134,7 @@ fun AlarmConfigSection(
             modifier = Modifier.padding(vertical = 12.dp)
         )
 
+        val selectToneTitle = stringResource(R.string.title_select_tone)
         ListItem(
             headlineContent = { Text(stringResource(R.string.label_sound)) },
             supportingContent = { Text(ringtoneTitle) },
@@ -141,7 +142,7 @@ fun AlarmConfigSection(
             modifier = Modifier.clickable {
                 val i = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
                     putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
-                    putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, context.getString(R.string.title_select_tone))
+                    putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, selectToneTitle)
                     putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, ringtoneUri?.let { Uri.parse(it) })
                 }
                 ringtoneLauncher.launch(i)
@@ -256,7 +257,11 @@ fun AlarmConfigSection(
                 )
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.setting_snooze_presets)) },
-                    supportingContent = { Text(if (snoozePresets == null) stringResource(R.string.setting_snooze_presets_default) else snoozePresets.joinToString(", ") { context.getString(R.string.fmt_minutes_short, it) }) },
+                    supportingContent = {
+                        val defaultText = stringResource(R.string.setting_snooze_presets_default)
+                        val fmtMinutesShort = stringResource(R.string.fmt_minutes_short)
+                        Text(if (snoozePresets == null) defaultText else snoozePresets.joinToString(", ") { it.toString() + fmtMinutesShort })
+                    },
                     modifier = Modifier.clickable { onSnoozePresetsChange(snoozePresets) }
                 )
             }

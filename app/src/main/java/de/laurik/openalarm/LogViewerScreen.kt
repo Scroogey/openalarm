@@ -117,10 +117,11 @@ fun LogViewerScreen(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
+                val logNoEntries = stringResource(R.string.log_no_entries)
                 OutlinedButton(
                     onClick = {
                         logger.clearLogs()
-                        logText = context.getString(R.string.log_no_entries)
+                        logText = logNoEntries
                         filteredLogs = if (searchText.isEmpty()) logText else ""
                     },
                     modifier = Modifier.weight(1f)

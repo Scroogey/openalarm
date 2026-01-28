@@ -81,14 +81,15 @@ fun AlarmCard(
     // B. Base Time (Original HH:MM)
     val baseTime = LocalTime.of(alarm.hour, alarm.minute)
 
+    val labelNext = stringResource(R.string.label_next)
     // C. Calculate the "Big Display" time
-    val (displayTimeBig, displayTimeSmall, labelPrefix) = remember(activeOverride, groupOffset, baseTime) {
+    val (displayTimeBig, displayTimeSmall, labelPrefix) = remember(activeOverride, groupOffset, baseTime, labelNext) {
         val formatter = DateTimeFormatter.ofPattern("HH:mm")
 
         if (activeOverride != null) {
             // CASE 1: Single Override Active (e.g. "Adjusted")
             val ot = java.time.Instant.ofEpochMilli(activeOverride).atZone(java.time.ZoneId.systemDefault()).toLocalTime()
-            Triple(ot.format(formatter), "(${baseTime.format(formatter)})", context.getString(R.string.label_next))
+            Triple(ot.format(formatter), "(${baseTime.format(formatter)})", labelNext)
         } else if (groupOffset != 0) {
             // CASE 2: Group Shift Active (e.g. -10m)
             val shifted = baseTime.plusMinutes(groupOffset.toLong())
