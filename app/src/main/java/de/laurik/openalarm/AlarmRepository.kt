@@ -143,12 +143,27 @@ object AlarmRepository {
     }
 
     fun updateAlarm(context: Context, alarm: AlarmItem) {
-        // UI Update: Remove from old location, add to new (in case GroupID changed)
-        InternalDataStore.groups.forEach { it.alarms.removeIf { a -> a.id == alarm.id } }
+        var moved = false
+        var updatedInPlace = false
 
-        val targetGroup = InternalDataStore.groups.find { it.id == alarm.groupId }
-            ?: InternalDataStore.groups.firstOrNull()
-        targetGroup?.alarms?.add(alarm)
+        InternalDataStore.groups.forEach { group ->
+            val index = group.alarms.indexOfFirst { it.id == alarm.id }
+            if (index != -1) {
+                if (group.id == alarm.groupId) {
+                    group.alarms[index] = alarm
+                    updatedInPlace = true
+                } else {
+                    group.alarms.removeAt(index)
+                    moved = true
+                }
+            }
+        }
+
+        if (!updatedInPlace && (moved || !InternalDataStore.groups.flatMap { it.alarms }.any { it.id == alarm.id })) {
+            val targetGroup = InternalDataStore.groups.find { it.id == alarm.groupId }
+                ?: InternalDataStore.groups.firstOrNull()
+            targetGroup?.alarms?.add(alarm)
+        }
 
         scope.launch { AppDatabase.getDatabase(context).alarmDao().updateAlarm(alarm) }
     }

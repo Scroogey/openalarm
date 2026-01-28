@@ -247,6 +247,7 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
     var editingAlarm by remember { mutableStateOf<AlarmItem?>(null) }
     var isCreatingNew by remember { mutableStateOf(false) }
     var showDatePickerForAlarm by remember { mutableStateOf<AlarmItem?>(null) }
+    var showDatePickerForGroup by remember { mutableStateOf<AlarmGroup?>(null) }
     var isFabExpanded by remember { mutableStateOf(false) }
 
     // Group Dialogs
@@ -481,11 +482,13 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
                         modifier = Modifier.animateItem(),
                         group = group,
                         onToggleGroup = { isEnabled ->
-                            group.alarms.forEach { a -> viewModel.toggleAlarm(a, isEnabled) }
+                            group.alarms.toList().forEach { a -> viewModel.toggleAlarm(a, isEnabled) }
                         },
                         onAdjust = { groupToAdjust = group },
                         onEdit = { groupToEdit = group },
-                        onSkip = { viewModel.skipGroup(group, it) },
+                        onSkipNextAll = { viewModel.skipNextAllInGroup(group) },
+                        onClearSkipAll = { viewModel.clearSkipAllInGroup(group) },
+                        onSkipUntilAll = { showDatePickerForGroup = group },
                         onDelete = { groupToDelete = group },
                         content = {
                             // Smart sorting for group alarms too
@@ -678,6 +681,21 @@ fun Dashboard(viewModel: DashboardViewModel = viewModel(), settingsViewModel: Se
                         viewModel.saveAlarm(updated, false)
                     }
                     showDatePickerForAlarm = null
+                }) { Text(stringResource(R.string.action_save)) }
+            }
+        ) { DatePicker(state = datePickerState) }
+    }
+    if (showDatePickerForGroup != null) {
+        val datePickerState = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showDatePickerForGroup = null },
+            confirmButton = {
+                TextButton(onClick = {
+                    val date = datePickerState.selectedDateMillis
+                    if (date != null) {
+                        viewModel.skipGroup(showDatePickerForGroup!!, date)
+                    }
+                    showDatePickerForGroup = null
                 }) { Text(stringResource(R.string.action_save)) }
             }
         ) { DatePicker(state = datePickerState) }

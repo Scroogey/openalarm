@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -172,6 +174,14 @@ fun AlarmCard(
                     } else {
                         AlarmStatusTicker(effectiveNext, isSnoozed, isEffectivelySkipped)
                     }
+                }
+
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        imageVector = Icons.Default.NotificationsOff,
+                        contentDescription = stringResource(R.string.menu_skip_next),
+                        tint = if (isSkipped) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
                 Switch(checked = alarm.isEnabled, onCheckedChange = onToggleGroup)

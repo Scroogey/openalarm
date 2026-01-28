@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.AlarmOff
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,10 +35,13 @@ fun GroupCard(
     onToggleGroup: (Boolean) -> Unit,
     onAdjust: () -> Unit,
     onEdit: () -> Unit,
-    onSkip: (Long) -> Unit,
+    onSkipNextAll: () -> Unit,
+    onClearSkipAll: () -> Unit,
+    onSkipUntilAll: () -> Unit,
     onDelete: (Boolean) -> Unit,
     content: @Composable () -> Unit
 ) {
+    var showMenu by remember { mutableStateOf(false) }
     val anyEnabled = group.alarms.any { it.isEnabled }
     val context = LocalContext.current
     var ticker by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -139,6 +143,37 @@ fun GroupCard(
                 }
 
 
+
+                // Skip Icon
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        imageVector = Icons.Default.AlarmOff,
+                        contentDescription = stringResource(R.string.menu_skip_next), // Reuse existing string for content description
+                        tint = if (group.skippedUntil > ticker || group.alarms.any { it.isEnabled && it.skippedUntil > ticker }) 
+                            MaterialTheme.colorScheme.error 
+                        else contentColor
+                    )
+                    
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        val anySkipped = group.alarms.any { it.isEnabled && it.skippedUntil > ticker } || group.skippedUntil > ticker
+                        
+                        if (anySkipped) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.menu_clear_skip)) },
+                                onClick = { showMenu = false; onClearSkipAll() }
+                            )
+                        } else {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.menu_skip_next)) },
+                                onClick = { showMenu = false; onSkipNextAll() }
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.menu_skip_until)) },
+                            onClick = { showMenu = false; onSkipUntilAll() }
+                        )
+                    }
+                }
 
                 // Switch
                 Switch(
