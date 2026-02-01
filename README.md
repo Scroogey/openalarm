@@ -8,6 +8,7 @@ This is an advanced, open source alarm app.
 - alarm snooze: enable/disable, set how often it is allowed to snooze, change default snooze time, set snooze presets (3), custom timeout
 - Two ringing screens: Clean (with joystick like control) and Easy (with simple buttons)
 - label/name for alarms
+- custom ringtones from folders/files (folders can be played rotationally or randomly)
 
 **Groups**
 - add as many alarms as you wish
@@ -22,7 +23,7 @@ This is an advanced, open source alarm app.
 # Roadmap
 Planned features (in no particular order):
 
-- [ ] Add custom ringtones
+- [x] Add custom ringtones
 - [x] Add languages (german and english are supported, you are welcome to translate momre)
 - [ ] add puzzles/math quizzes/other questions before stopping/snoozing
 - [ ] add user feedback notifications (e.g. for max adjustment time)
