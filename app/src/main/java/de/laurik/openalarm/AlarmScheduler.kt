@@ -126,21 +126,30 @@ class AlarmScheduler(private val context: Context) {
         }
 
         // Calculate next occurrence
+        // Use 'now' instead of 'now - 60_000' for rescheduling active alarms.
+        // We want the NEXT occurrence in the future, not one that might have just passed within the grace period.
         val nextOccurrence = AlarmUtils.getNextOccurrence(
             alarm.hour, alarm.minute, alarm.daysOfWeek,
-            offset, null, null, now - 60_000
+            offset, null, null, now
         )
 
         // Apply 6-hour safe window
         val shouldSkip = nextOccurrence <= now + (6 * 60 * 60 * 1000)
-        val finalSkipTime = if (shouldSkip) now + (6 * 60 * 60 * 1000) else 0L
+        
+        // Fix: Force the scheduler to see the "current" time as invalid if we just stopped the alarm.
+        // We set skippedUntil to at least now + 1s so getNextOccurrence picks the NEXT valid time.
+        val finalSkipTime = if (shouldSkip) {
+            now + (6 * 60 * 60 * 1000)
+        } else {
+            maxOf(alarm.skippedUntil, now + 1000L)
+        }
 
         val updated = alarm.copy(
             snoozeUntil = null,
             currentSnoozeCount = 0,
             temporaryOverrideTime = null,
             lastTriggerTime = 0L,
-            skippedUntil = if (shouldSkip) finalSkipTime else alarm.skippedUntil,
+            skippedUntil = finalSkipTime,
             isEnabled = if (alarm.isSingleUse) false else alarm.isEnabled
         )
         AlarmRepository.updateAlarm(context, updated)

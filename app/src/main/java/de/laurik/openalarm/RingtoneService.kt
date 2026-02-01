@@ -12,7 +12,6 @@ import android.os.*
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
-import androidx.compose.foundation.lazy.layout.PrefetchScheduler
 import androidx.core.net.toUri
 import de.laurik.openalarm.utils.AppLogger
 import kotlinx.coroutines.*
@@ -130,7 +129,10 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             }
         }
 
+        // WakeLock Early Acquisition (Crucial for screen WAKEUP speed)
+        // We acquire it immediately to prevent doze re-entry while loading repo.
         if (wakeLock?.isHeld == false) wakeLock?.acquire(10 * 60 * 1000L) // 10 min max
+
 
         serviceScope.launch {
             logger.d(TAG, "Ensuring repository is loaded...")
@@ -138,6 +140,19 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
             AlarmRepository.ensureLoaded(applicationContext)
             val loadDuration = System.currentTimeMillis() - startTime
             logger.d(TAG, "Repository loaded in ${loadDuration}ms. Handling intent.")
+            
+            // Re-acquire screen wake lock here (after data load) to ensure content is ready
+            // IF we are starting an alarm.
+            if (id != -1 && (action == "START_ALARM" || action == null)) {
+                 try {
+                    screenWakeLock?.let {
+                        if (!it.isHeld) it.acquire(10_000L)
+                    }
+                } catch (e: Exception) {
+                    logger.e(TAG, "Failed to acquire screen wake lock", e)
+                }
+            }
+            
             handleIntent(intent)
         }
 
@@ -233,7 +248,9 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
         // Remove the silent ringing notification if it exists (for queued alarms)
         val nm = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
-        nm.cancel(id)
+        // DO NOT cancel the ID here if we are about to startForeground with the SAME ID.
+        // Canceling it might interrupt the Full Screen Intent launch or cause flickering.
+        // nm.cancel(id) 
 
         // Update the foreground service notification
         val notification = NotificationRenderer.buildRingingNotification(
@@ -249,7 +266,9 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         NotificationRenderer.refreshAll(this)
 
         // Audio
-        startAudio(id, type)
+        serviceScope.launch {
+            startAudio(id, type)
+        }
 
         // Activity
         val fullScreenIntent = Intent(this, RingActivity::class.java).apply {
@@ -272,7 +291,12 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         } catch (e: Exception) {
             logger.e(TAG, "Failed to acquire screen wake lock", e)
         }
-        startActivity(fullScreenIntent)
+        
+        try {
+            startActivity(fullScreenIntent)
+        } catch (e: Exception) {
+            logger.e(TAG, "Failed to manually start RingActivity", e)
+        }
     }
 
     // --- TIMEOUT LOGIC ---
@@ -689,7 +713,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
     // --- AUDIO & TTS ---
 
-    private fun startAudio(id: Int, type: String) {
+    private suspend fun startAudio(id: Int, type: String) {
         stopMedia() // Cleanup previous media
 
         var uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
@@ -701,8 +725,11 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
         var applyMaxSystemVolume = false
         if (type == "ALARM") {
-            AlarmRepository.getAlarm(id)?.let { alarm ->
-                if (alarm.ringtoneUri != null) uri = android.net.Uri.parse(alarm.ringtoneUri)
+            val alarm = AlarmRepository.getAlarm(id)
+            if (alarm != null) {
+                // RESOLVE URI
+                uri = CustomRingtoneRepository.resolveRingtoneUri(applicationContext, alarm) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+
                 volume = alarm.customVolume ?: 1.0f
                 applyMaxSystemVolume = alarm.customVolume != null
                 vibrate = alarm.vibrationEnabled
@@ -720,8 +747,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                         getString(R.string.tts_time_announce, now.format(java.time.format.DateTimeFormatter.ofPattern("H:mm")))
                     }
                 }
-                
-                logger.d(TAG, "Setting custom volume: $volume (boost: $applyMaxSystemVolume) for alarm ID: $id")
+                logger.d(TAG, "Setting custom volume: $volume (boost: $applyMaxSystemVolume) and URI: $uri for alarm ID: $id")
             }
         } else {
             val s = SettingsRepository.getInstance(this)
@@ -806,7 +832,26 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 start()
             }
         } catch (e: Exception) {
-            logger.e(TAG, "MediaPlayer failed", e)
+            logger.e(TAG, "MediaPlayer failed with $uri, falling back to default", e)
+            try {
+                mediaPlayer = MediaPlayer().apply {
+                    setDataSource(applicationContext, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    setAudioStreamType(AudioManager.STREAM_ALARM)
+                    isLooping = true
+                    if (fadeInSeconds > 0) setVolume(0.01f, 0.01f)
+                    else { val v = perceptualVolume(volume); setVolume(v, v) }
+                    prepare()
+                    start()
+                }
+            } catch (e2: Exception) {
+                logger.e(TAG, "CRITICAL: Default Ringtone also failed", e2)
+            }
         }
 
         // Vibration
@@ -887,8 +932,14 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
     private suspend fun startTtsLoop(mode: TtsMode, customText: String, volume: Float) {
         var attempts = 0
-        while (!isTtsReady && attempts < 20) { delay(200); attempts++ }
-        if (!isTtsReady || tts == null) return
+        while (!isTtsReady && attempts < 50) {
+            delay(200)
+            attempts++
+        }
+        if (!isTtsReady || tts == null) {
+            logger.e(TAG, "TTS not ready after $attempts attempts. isTtsReady=$isTtsReady")
+            return
+        }
 
         val params = Bundle()
         params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, volume)
@@ -1046,7 +1097,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 isTtsReady = true
             }
         } else {
-            logger.e(TAG, "TTS Init failed")
+            logger.e(TAG, "TTS Init failed with status: $status")
             isTtsReady = false
         }
     }

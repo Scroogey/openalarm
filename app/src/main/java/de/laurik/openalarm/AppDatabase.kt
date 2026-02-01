@@ -30,6 +30,11 @@ class Converters {
     fun fromRingingScreenMode(mode: RingingScreenMode): String = mode.name
     @TypeConverter
     fun toRingingScreenMode(data: String): RingingScreenMode = RingingScreenMode.DEFAULT.let { try { RingingScreenMode.valueOf(data) } catch(e:Exception){it} }
+
+    @TypeConverter
+    fun fromCustomRingtoneSelectionMode(mode: CustomRingtoneSelectionMode): String = mode.name
+    @TypeConverter
+    fun toCustomRingtoneSelectionMode(data: String): CustomRingtoneSelectionMode = CustomRingtoneSelectionMode.SINGLE.let { try { CustomRingtoneSelectionMode.valueOf(data) } catch(e:Exception){it} }
 }
 
 // 2. DATA ACCESS OBJECT (The SQL commands)
@@ -99,18 +104,34 @@ interface AlarmDao {
     @Query("DELETE FROM interrupted_items")
     suspend fun clearAllInterrupted()
 
+    @Query("DELETE FROM custom_ringtones")
+    suspend fun clearAllCustomRingtones()
+
     // --- ID GENERATION ---
     @Query("SELECT MAX(id) FROM alarms")
     suspend fun getMaxAlarmId(): Int?
 
     @Query("SELECT MAX(id) FROM timers")
     suspend fun getMaxTimerId(): Int?
+
+    // --- CUSTOM RINGTONES ---
+    @Query("SELECT * FROM custom_ringtones")
+    suspend fun getAllCustomRingtones(): List<CustomRingtoneEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCustomRingtone(ringtone: CustomRingtoneEntity)
+
+    @Delete
+    suspend fun deleteCustomRingtone(ringtone: CustomRingtoneEntity)
+    
+    @Query("SELECT * FROM custom_ringtones WHERE id = :id")
+    suspend fun getCustomRingtone(id: String): CustomRingtoneEntity?
 }
 
 // 3. DATABASE INSTANCE
 @Database(
-    entities = [AlarmGroupEntity::class, AlarmItem::class, TimerItem::class, InterruptedItem::class],
-    version = 2,
+    entities = [AlarmGroupEntity::class, AlarmItem::class, TimerItem::class, InterruptedItem::class, CustomRingtoneEntity::class],
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -128,7 +149,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "openalarm_db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
@@ -141,6 +162,17 @@ abstract class AppDatabase : RoomDatabase() {
                 // Add the new column as nullable
                 db.execSQL(
                     "ALTER TABLE alarms ADD COLUMN ttsText TEXT"
+                )
+            }
+        }
+
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `custom_ringtones` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `uri` TEXT NOT NULL, `mode` TEXT NOT NULL, PRIMARY KEY(`id`))"
+                )
+                db.execSQL(
+                    "ALTER TABLE alarms ADD COLUMN ringtoneRotationIndex INTEGER NOT NULL DEFAULT 0"
                 )
             }
         }

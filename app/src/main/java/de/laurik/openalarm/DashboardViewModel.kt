@@ -130,8 +130,55 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             AlarmRepository.updateGroup(context, entity)
             val scheduler = AlarmScheduler(context)
-            group.alarms.forEach { alarm ->
-                if (alarm.isEnabled) scheduler.schedule(alarm, group.offsetMinutes)
+            group.alarms.toList().forEach { alarm ->
+                if (alarm.isEnabled) {
+                    val updated = alarm.copy(skippedUntil = until)
+                    AlarmRepository.updateAlarm(context, updated)
+                    scheduler.schedule(updated, group.offsetMinutes)
+                }
+            }
+            NotificationRenderer.refreshAll(context)
+        }
+    }
+
+    fun skipNextAllInGroup(group: AlarmGroup) {
+        viewModelScope.launch {
+            val scheduler = AlarmScheduler(context)
+            val now = System.currentTimeMillis()
+            group.alarms.toList().forEach { alarm ->
+                if (alarm.isEnabled) {
+                    val nextRaw = AlarmUtils.getNextOccurrence(
+                        alarm.hour, alarm.minute, alarm.daysOfWeek, group.offsetMinutes, alarm.temporaryOverrideTime, alarm.snoozeUntil,
+                        minTimestamp = if (alarm.skippedUntil > now) alarm.skippedUntil else now
+                    )
+                    val baseNext = AlarmUtils.getNextOccurrence(
+                        alarm.hour, alarm.minute, alarm.daysOfWeek, group.offsetMinutes, null, alarm.snoozeUntil,
+                        minTimestamp = if (alarm.skippedUntil > now) alarm.skippedUntil else now
+                    )
+                    val skipTarget = maxOf(nextRaw, baseNext)
+                    val updated = alarm.copy(skippedUntil = skipTarget + 1000)
+                    AlarmRepository.updateAlarm(context, updated)
+                    scheduler.schedule(updated, group.offsetMinutes)
+                }
+            }
+            NotificationRenderer.refreshAll(context)
+        }
+    }
+
+    fun clearSkipAllInGroup(group: AlarmGroup) {
+        viewModelScope.launch {
+            val scheduler = AlarmScheduler(context)
+            group.alarms.toList().forEach { alarm ->
+                if (alarm.skippedUntil > 0L || alarm.temporaryOverrideTime != null) {
+                    val updated = alarm.copy(skippedUntil = 0L, temporaryOverrideTime = null)
+                    AlarmRepository.updateAlarm(context, updated)
+                    scheduler.schedule(updated, group.offsetMinutes)
+                }
+            }
+            // Also clear group-level skip if it exists
+            if (group.skippedUntil > 0L) {
+                val entity = AlarmGroupEntity(group.id, group.name, group.offsetMinutes, 0L, group.colorArgb)
+                AlarmRepository.updateGroup(context, entity)
             }
             NotificationRenderer.refreshAll(context)
         }
@@ -155,27 +202,29 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 }
 
                 // Update each alarm individually
-                alarmsToAdjust.forEach { alarm ->
-                    // Calculate the next occurrence time
-                    val nextOccurrence = AlarmUtils.getNextOccurrence(
-                        alarm.hour,
-                        alarm.minute,
-                        alarm.daysOfWeek,
-                        0, // Ignore group offset as requested
-                        alarm.temporaryOverrideTime,
-                        alarm.snoozeUntil,
-                        System.currentTimeMillis()
-                    )
+                group.alarms.toList().forEach { alarm ->
+                    if (alarm.isEnabled) {
+                        // Calculate the next occurrence time
+                        val nextOccurrence = AlarmUtils.getNextOccurrence(
+                            alarm.hour,
+                            alarm.minute,
+                            alarm.daysOfWeek,
+                            0, // Ignore group offset as requested
+                            alarm.temporaryOverrideTime,
+                            alarm.snoozeUntil,
+                            System.currentTimeMillis()
+                        )
 
-                    // Update in database with the adjustment
-                    val updatedAlarm = alarm.copy(
-                        temporaryOverrideTime = nextOccurrence + (minutes * 60 * 1000L)
-                    )
-                    AlarmRepository.updateAlarm(context, updatedAlarm)
+                        // Update in database with the adjustment
+                        val updatedAlarm = alarm.copy(
+                            temporaryOverrideTime = nextOccurrence + (minutes * 60 * 1000L)
+                        )
+                        AlarmRepository.updateAlarm(context, updatedAlarm)
 
-                    // Reschedule the alarm with the adjustment
-                    // The scheduler will handle clamping the adjustment
-                    AlarmScheduler(context).schedule(updatedAlarm, 0, minutes)
+                        // Reschedule the alarm with the adjustment
+                        // The scheduler will handle clamping the adjustment
+                        AlarmScheduler(context).schedule(updatedAlarm, 0, minutes)
+                    }
                 }
 
                 refreshAlarms()
@@ -192,20 +241,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 // Create a transaction to ensure all updates happen together
                 val db = AppDatabase.getDatabase(context).alarmDao()
 
-                // Reset all alarms in the group in a single transaction
-                group.alarms.forEach { alarm ->
+                // Reset all alarms in the group
+                group.alarms.toList().forEach { alarm ->
                     if (alarm.temporaryOverrideTime != null) {
                         val updatedAlarm = alarm.copy(temporaryOverrideTime = null)
-
-                        // Update in memory
-                        InternalDataStore.groups.forEach { g ->
-                            g.alarms.replaceAll { a ->
-                                if (a.id == alarm.id) updatedAlarm else a
-                            }
-                        }
-
-                        // Update in database
-                        db.updateAlarm(updatedAlarm)
+                        
+                        // Update in repository (handles memory + DB)
+                        AlarmRepository.updateAlarm(context, updatedAlarm)
 
                         // Reschedule the alarm
                         val scheduler = AlarmScheduler(context)

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.AlarmOff
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +28,13 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 
+private data class GroupStatus(
+    val summary: String,
+    val nextTime: Long?,
+    val isNextSkipped: Boolean,
+    val anySkippedOrAdjusted: Boolean
+)
+
 @Composable
 fun GroupCard(
     modifier: Modifier = Modifier,
@@ -34,10 +42,13 @@ fun GroupCard(
     onToggleGroup: (Boolean) -> Unit,
     onAdjust: () -> Unit,
     onEdit: () -> Unit,
-    onSkip: (Long) -> Unit,
+    onSkipNextAll: () -> Unit,
+    onClearSkipAll: () -> Unit,
+    onSkipUntilAll: () -> Unit,
     onDelete: (Boolean) -> Unit,
     content: @Composable () -> Unit
 ) {
+    var showMenu by remember { mutableStateOf(false) }
     val anyEnabled = group.alarms.any { it.isEnabled }
     val context = LocalContext.current
     var ticker by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -77,7 +88,7 @@ fun GroupCard(
     val nextTimeTemplate = stringResource(R.string.next_time_group)
 
     // Reactively calculate the summary and next ringing time
-    val groupSummary = remember(group.alarms.size, anyEnabled, group.offsetMinutes, group.skippedUntil, ticker) {
+    val status = remember(group.alarms.size, anyEnabled, group.offsetMinutes, group.skippedUntil, ticker) {
         val nextTimes = group.alarms.filter { it.isEnabled }.map { alarm ->
             val minTime = maxOf(ticker, alarm.skippedUntil, group.skippedUntil)
             AlarmUtils.getNextOccurrence(
@@ -87,8 +98,21 @@ fun GroupCard(
             )
         }
 
-        val nextTime = nextTimes.minOrNull()
-        val nextTimeStr = nextTime?.let {
+        val normalNextTimes = group.alarms.filter { it.isEnabled }.map { alarm ->
+            AlarmUtils.getNextOccurrence(
+                alarm.hour, alarm.minute, alarm.daysOfWeek, group.offsetMinutes,
+                alarm.temporaryOverrideTime, alarm.snoozeUntil,
+                ticker
+            )
+        }
+
+        val nTime = nextTimes.minOrNull()
+        val normalNextTime = normalNextTimes.minOrNull()
+        val nextSkipped = normalNextTime != null && nTime != null && nTime > normalNextTime
+
+        val anySkipped = group.skippedUntil > ticker || group.alarms.any { it.isEnabled && (it.skippedUntil > ticker || it.temporaryOverrideTime != null) }
+
+        val nextTimeStr = nTime?.let {
             if (it > 0) {
                 val timeUntil = AlarmUtils.getTimeUntilString(context, it, ticker)
                 String.format(nextTimeTemplate, timeUntil)
@@ -99,7 +123,8 @@ fun GroupCard(
         else group.alarms.sortedBy { it.hour * 60 + it.minute }
             .joinToString(", ") { String.format("%02d:%02d", it.hour, it.minute) }
 
-        if (nextTimeStr != null) "$nextTimeStr ($alarmList)" else alarmList
+        val summary = if (nextTimeStr != null) "$nextTimeStr ($alarmList)" else alarmList
+        GroupStatus(summary, nTime, nextSkipped, anySkipped)
     }
 
     Card(
@@ -134,11 +159,41 @@ fun GroupCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(group.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = contentColor)
                     if (!group.isExpanded) {
-                        Text(groupSummary, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, color = contentColor.copy(alpha = 0.7f))
+                        Text(status.summary, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, color = contentColor.copy(alpha = 0.7f))
                     }
                 }
 
 
+
+                // Skip Icon
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        imageVector = Icons.Default.AlarmOff,
+                        contentDescription = stringResource(R.string.menu_skip_next), // Reuse existing string for content description
+                        tint = when {
+                            status.isNextSkipped -> MaterialTheme.colorScheme.error
+                            status.anySkippedOrAdjusted -> MaterialTheme.colorScheme.primary
+                            else -> contentColor
+                        }
+                    )
+                    
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.menu_skip_next)) },
+                            onClick = { showMenu = false; onSkipNextAll() }
+                        )
+                        if (status.anySkippedOrAdjusted) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.menu_clear_skip)) },
+                                onClick = { showMenu = false; onClearSkipAll() }
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.menu_skip_until)) },
+                            onClick = { showMenu = false; onSkipUntilAll() }
+                        )
+                    }
+                }
 
                 // Switch
                 Switch(

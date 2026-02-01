@@ -297,4 +297,32 @@
     <string name="toast_alarm_stopped">Alarm stopped</string>
     <string name="toast_alarm_auto_stopped">Alarm timed out</string>
     <string name="toast_timer_stopped">Timer stopped</string>
+    <string name="title_custom_ringtone_manager">Custom Ringtone Manager</string>
+    <string name="action_add_file">Add File</string>
+    <string name="action_add_folder">Add Folder</string>
+    <string name="label_mode_single">Single File</string>
+    <string name="label_mode_random">Random from Folder</string>
+    <string name="label_mode_rotating">Rotating from Folder</string>
+    <string name="dialog_title_select_manager">Select Ringtone Source</string>
+    <string name="option_system_manager">System Ringtone Picker</string>
+    <string name="option_custom_manager">Custom Ringtone Manager</string>
+    <string name="msg_no_custom_ringtones">No custom ringtones added yet.</string>
+    <string name="label_added_ringtones">Added Ringtones</string>
+    <string name="action_delete_ringtone">Delete Ringtone</string>
+    <string name="msg_folder_empty">The selected folder does not contain any playable audio files.</string>
+    <string name="label_custom_file">Custom File</string>
+    <string name="label_custom_folder">Custom Folder</string>
+    <string name="dialog_msg_delete_custom_ringtone">Delete custom ringtone setting for "%1$s"?</string>
+    <string name="action_change">Change</string>
+    <string name="desc_preview">Preview</string>
+    <string name="fmt_system_ringtone">System: %1$s</string>
+    <string name="label_unknown_custom">Unknown Custom</string>
+    <string name="fmt_custom_ringtone">Custom: %1$s %2$s</string>
+    <string name="label_unknown">Unknown</string>
+    <string name="fmt_system_ringtone_custom">System: Custom Tone</string>
+    <string name="label_folder_indicator">(folder)</string>
+    <plurals name="fmt_folder_and_tracks">
+        <item quantity="one">(Folder, %1$d track)</item>
+        <item quantity="other">(Folder, %1$d tracks)</item>
+    </plurals>
 </resources>

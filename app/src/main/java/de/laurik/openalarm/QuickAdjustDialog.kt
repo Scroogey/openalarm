@@ -49,10 +49,11 @@ fun QuickAdjustDialog(
         }
     }
     
+    val duration0s = stringResource(R.string.fmt_duration_0s)
     val context = LocalContext.current
     // Formatting: 105 -> 1h 05m
-    val formattedInput = remember(inputMinutes, context) {
-        if (inputMinutes == 0) context.getString(R.string.fmt_duration_0s)
+    val formattedInput = remember(inputMinutes, context, duration0s) {
+        if (inputMinutes == 0) duration0s
         else AlarmUtils.formatMinutes(context, inputMinutes)
     }
 

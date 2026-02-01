@@ -231,6 +231,7 @@ fun SettingsScreen(
                             timerRingtone
                         )
                     }
+                    val selectToneTitle = stringResource(R.string.title_select_tone)
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.label_timer_ringtone)) },
                         supportingContent = { Text(ringtoneTitle) },
@@ -240,13 +241,10 @@ fun SettingsScreen(
                                     RingtoneManager.EXTRA_RINGTONE_TYPE,
                                     RingtoneManager.TYPE_ALARM
                                 )
-                                putExtra(
-                                    RingtoneManager.EXTRA_RINGTONE_TITLE,
-                                    context.getString(R.string.title_select_tone)
-                                )
                                 val existing =
                                     if (timerRingtone != null) Uri.parse(timerRingtone) else null
                                 putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, existing)
+                                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, selectToneTitle)
                             }
                             timerRingtoneLauncher.launch(i)
                         }
@@ -433,6 +431,8 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.height(8.dp))
 
+                    val exportSuccessText = stringResource(R.string.export_successful)
+                    val exportFailedText = stringResource(R.string.export_failed)
                     val exportLauncher =
                         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
                             uri?.let {
@@ -443,13 +443,13 @@ fun SettingsScreen(
                                         if (success) {
                                             android.widget.Toast.makeText(
                                                 context,
-                                                context.getString(R.string.export_successful),
+                                                exportSuccessText,
                                                 android.widget.Toast.LENGTH_SHORT
                                             ).show()
                                         } else {
                                             android.widget.Toast.makeText(
                                                 context,
-                                                context.getString(R.string.export_failed),
+                                                exportFailedText,
                                                 android.widget.Toast.LENGTH_SHORT
                                             ).show()
                                         }
