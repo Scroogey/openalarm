@@ -297,4 +297,32 @@
     <string name="toast_alarm_stopped">Wecker gestopt</string>
     <string name="toast_alarm_auto_stopped">Zeitlimit für Wecker erreicht</string>
     <string name="toast_timer_stopped">Timer gestopt</string>
+    <string name="title_custom_ringtone_manager">Eigener Klingelton-Manager</string>
+    <string name="action_add_file">Datei hinzufügen</string>
+    <string name="action_add_folder">Ordner hinzufügen</string>
+    <string name="label_mode_single">Einzelne Datei</string>
+    <string name="label_mode_random">Zufällig aus Ordner</string>
+    <string name="label_mode_rotating">Rotierend aus Ordner</string>
+    <string name="dialog_title_select_manager">Klingelton-Quelle wählen</string>
+    <string name="option_system_manager">Klingeltonauswahl des Systems</string>
+    <string name="option_custom_manager">Eigener Klingelton-Manager</string>
+    <string name="msg_no_custom_ringtones">Noch keine eigenen Klingeltöne hinzugefügt.</string>
+    <string name="label_added_ringtones">Hinzugefügte Klingeltöne</string>
+    <string name="action_delete_ringtone">Klingelton löschen</string>
+    <string name="msg_folder_empty">Der gewählte Ordner enthält keine abspielbaren Audiodateien.</string>
+    <string name="label_custom_file">Eigene Datei</string>
+    <string name="label_custom_folder">Eigener Ordner</string>
+    <string name="dialog_msg_delete_custom_ringtone">Eigene Klingelton-Einstellung für "%1$s" löschen?</string>
+    <string name="action_change">Ändern</string>
+    <string name="desc_preview">Vorschau</string>
+    <string name="fmt_system_ringtone">System: %1$s</string>
+    <string name="label_unknown_custom">Unbekannter eigener Ton</string>
+    <string name="fmt_custom_ringtone">Eigener Ton: %1$s %2$s</string>
+    <string name="label_unknown">Unbekannt</string>
+    <string name="fmt_system_ringtone_custom">System: Eigener Ton</string>
+    <string name="label_folder_indicator">(Ordner)</string>
+    <plurals name="fmt_folder_and_tracks">
+        <item quantity="one">(Ordner, %1$d Titel)</item>
+        <item quantity="other">(Ordner, %1$d Titel)</item>
+    </plurals>
 </resources>

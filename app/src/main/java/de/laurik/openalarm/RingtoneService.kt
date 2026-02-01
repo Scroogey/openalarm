@@ -266,7 +266,9 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
         NotificationRenderer.refreshAll(this)
 
         // Audio
-        startAudio(id, type)
+        serviceScope.launch {
+            startAudio(id, type)
+        }
 
         // Activity
         val fullScreenIntent = Intent(this, RingActivity::class.java).apply {
@@ -711,7 +713,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
     // --- AUDIO & TTS ---
 
-    private fun startAudio(id: Int, type: String) {
+    private suspend fun startAudio(id: Int, type: String) {
         stopMedia() // Cleanup previous media
 
         var uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
@@ -723,8 +725,11 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
 
         var applyMaxSystemVolume = false
         if (type == "ALARM") {
-            AlarmRepository.getAlarm(id)?.let { alarm ->
-                if (alarm.ringtoneUri != null) uri = android.net.Uri.parse(alarm.ringtoneUri)
+            val alarm = AlarmRepository.getAlarm(id)
+            if (alarm != null) {
+                // RESOLVE URI
+                uri = CustomRingtoneRepository.resolveRingtoneUri(applicationContext, alarm) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+
                 volume = alarm.customVolume ?: 1.0f
                 applyMaxSystemVolume = alarm.customVolume != null
                 vibrate = alarm.vibrationEnabled
@@ -742,8 +747,7 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                         getString(R.string.tts_time_announce, now.format(java.time.format.DateTimeFormatter.ofPattern("H:mm")))
                     }
                 }
-                
-                logger.d(TAG, "Setting custom volume: $volume (boost: $applyMaxSystemVolume) for alarm ID: $id")
+                logger.d(TAG, "Setting custom volume: $volume (boost: $applyMaxSystemVolume) and URI: $uri for alarm ID: $id")
             }
         } else {
             val s = SettingsRepository.getInstance(this)
@@ -828,7 +832,26 @@ class RingtoneService : Service(), TextToSpeech.OnInitListener {
                 start()
             }
         } catch (e: Exception) {
-            logger.e(TAG, "MediaPlayer failed", e)
+            logger.e(TAG, "MediaPlayer failed with $uri, falling back to default", e)
+            try {
+                mediaPlayer = MediaPlayer().apply {
+                    setDataSource(applicationContext, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    setAudioStreamType(AudioManager.STREAM_ALARM)
+                    isLooping = true
+                    if (fadeInSeconds > 0) setVolume(0.01f, 0.01f)
+                    else { val v = perceptualVolume(volume); setVolume(v, v) }
+                    prepare()
+                    start()
+                }
+            } catch (e2: Exception) {
+                logger.e(TAG, "CRITICAL: Default Ringtone also failed", e2)
+            }
         }
 
         // Vibration

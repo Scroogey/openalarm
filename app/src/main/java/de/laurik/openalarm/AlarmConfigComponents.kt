@@ -86,6 +86,9 @@ fun AlarmConfigSection(
         }
     }
 
+    var showSourceSelector by remember { mutableStateOf(false) }
+    var showCustomManager by remember { mutableStateOf(false) }
+
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         // 1. LABEL
         OutlinedTextField(
@@ -140,14 +143,67 @@ fun AlarmConfigSection(
             supportingContent = { Text(ringtoneTitle) },
             trailingContent = { Text(">") },
             modifier = Modifier.clickable {
-                val i = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                    putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
-                    putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, selectToneTitle)
-                    putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, ringtoneUri?.let { Uri.parse(it) })
-                }
-                ringtoneLauncher.launch(i)
+                showSourceSelector = true
             }
         )
+
+        if (showSourceSelector) {
+            AlertDialog(
+                onDismissRequest = { showSourceSelector = false },
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp,
+                title = { Text(stringResource(R.string.dialog_title_select_manager)) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Surface(
+                            onClick = {
+                                showSourceSelector = false
+                                val i = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, selectToneTitle)
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, ringtoneUri?.let { Uri.parse(it) })
+                                }
+                                ringtoneLauncher.launch(i)
+                            },
+                            shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            ListItem(
+                                headlineContent = { Text(stringResource(R.string.option_system_manager)) },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                        }
+                        
+                        Surface(
+                            onClick = {
+                                showSourceSelector = false
+                                showCustomManager = true
+                            },
+                            shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            ListItem(
+                                headlineContent = { Text(stringResource(R.string.option_custom_manager)) },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                        }
+                    }
+                },
+                confirmButton = {}
+            )
+        }
+
+        if (showCustomManager) {
+            CustomRingtoneManagerDialog(
+                onDismiss = { showCustomManager = false },
+                onRingtoneSelected = { 
+                    onRingtoneChange(it)
+                    showCustomManager = false
+                }
+            )
+        }
 
         // Volume Slider
         Column(modifier = Modifier.padding(top = 12.dp)) {

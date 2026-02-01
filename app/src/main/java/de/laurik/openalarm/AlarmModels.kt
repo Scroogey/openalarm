@@ -17,6 +17,8 @@ enum class TtsMode { NONE, ONCE, EVERY_MINUTE }
 enum class AlarmType { SOFT, REGULAR, CRITICAL }
 @Serializable
 enum class RingingScreenMode { DEFAULT, EASY, CLEAN }
+@Serializable
+enum class CustomRingtoneSelectionMode { SINGLE, RANDOM, ROTATING }
 
 // --- ENTITIES (Database Tables) ---
 
@@ -29,6 +31,16 @@ data class AlarmGroupEntity(
     val offsetMinutes: Int = 0,
     val skippedUntil: Long = 0L,
     val colorArgb: Int = 0xFFFFFFFF.toInt()
+)
+
+@Serializable
+@Entity(tableName = "custom_ringtones")
+data class CustomRingtoneEntity(
+    @PrimaryKey
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val uri: String, // Folder or File URI
+    val mode: CustomRingtoneSelectionMode = CustomRingtoneSelectionMode.SINGLE
 )
 
 @Serializable
@@ -91,7 +103,8 @@ data class AlarmItem(
     var snoozePresets: List<Int>? = null, // null = use global defaults
 
     // Internal
-    var lastTriggerTime: Long = 0L
+    var lastTriggerTime: Long = 0L,
+    var ringtoneRotationIndex: Int = 0 // Used if ringtone is a folder and mode is ROTATING
 )
 
 @Entity(tableName = "timers")

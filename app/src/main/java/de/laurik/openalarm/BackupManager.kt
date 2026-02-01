@@ -17,7 +17,8 @@ data class BackupData(
     val settings: Map<String, String>,
     val settingTypes: Map<String, String>, // "bool", "int", "string", "float", "long"
     val groups: List<AlarmGroupEntity>,
-    val alarms: List<AlarmItem>
+    val alarms: List<AlarmItem>,
+    val customRingtones: List<CustomRingtoneEntity> = emptyList()
 )
 
 object BackupManager {
@@ -33,6 +34,7 @@ object BackupManager {
                 val db = AppDatabase.getDatabase(context).alarmDao()
                 val groups = db.getAllGroups()
                 val alarms = groups.flatMap { db.getAlarmsForGroup(it.id) }.map { it.toBackup() }
+                val customRingtones = db.getAllCustomRingtones()
 
                 val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
                 val allEntries = prefs.all
@@ -55,7 +57,8 @@ object BackupManager {
                     settings = settings,
                     settingTypes = settingTypes,
                     groups = groups,
-                    alarms = alarms
+                    alarms = alarms,
+                    customRingtones = customRingtones
                 )
 
                 val content = json.encodeToString(backup)
@@ -103,7 +106,11 @@ object BackupManager {
                     db.clearAllGroups()
                     db.clearAllTimers()
                     db.clearAllInterrupted()
-
+                    // Custom Ringtones are NOT cleared automatically by clearAllAlarms usually, 
+                    // but we should probably clear them to avoid duplicates if they have set IDs
+                    // Actually, let's just insert them with OnConflictStrategy.REPLACE
+                    db.clearAllCustomRingtones()
+                    
                     // Insert groups first (due to foreign key)
                     for (group in backup.groups) {
                         db.insertGroup(group)
@@ -111,6 +118,10 @@ object BackupManager {
                     // Insert alarms
                     for (alarm in backup.alarms) {
                         db.insertAlarm(alarm)
+                    }
+                    
+                    for (rt in backup.customRingtones) {
+                        db.insertCustomRingtone(rt)
                     }
                 }
 
