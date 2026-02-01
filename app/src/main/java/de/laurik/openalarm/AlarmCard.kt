@@ -8,7 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.AlarmOff
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -178,9 +178,9 @@ fun AlarmCard(
 
                 IconButton(onClick = { showMenu = true }) {
                     Icon(
-                        imageVector = Icons.Default.NotificationsOff,
+                        imageVector = Icons.Default.AlarmOff,
                         contentDescription = stringResource(R.string.menu_skip_next),
-                        tint = if (isSkipped) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = if (isEffectivelySkipped) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -189,7 +189,7 @@ fun AlarmCard(
 
             // --- MENU ---
             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                if (isSkipped) {
+                if (isEffectivelySkipped) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.menu_clear_skip)) }, onClick = { showMenu = false; onClearSkip() })
                 } else {
                     DropdownMenuItem(text = { Text(stringResource(R.string.menu_skip_next)) }, onClick = { showMenu = false; onSkipNext() })
