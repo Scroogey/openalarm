@@ -15,25 +15,25 @@ android {
         applicationId = "de.laurik.openalarm"
         minSdk = 23
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.1-Alpha"
+        versionCode = 3
+        versionName = "0.2.0-Alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-//    signingConfigs {
-//        create("release") {
-//            keyAlias = property("RELEASE_KEY_ALIAS") as String
-//            keyPassword = property("RELEASE_KEY_PASSWORD") as String
-//            storeFile = file(property("RELEASE_STORE_FILE") as String)
-//            storePassword = property("RELEASE_STORE_PASSWORD") as String
-//        }
-//    }
+    signingConfigs {
+        create("release") {
+            keyAlias = property("RELEASE_KEY_ALIAS") as String
+            keyPassword = property("RELEASE_KEY_PASSWORD") as String
+            storeFile = file(property("RELEASE_STORE_FILE") as String)
+            storePassword = property("RELEASE_STORE_PASSWORD") as String
+        }
+    }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-//            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
